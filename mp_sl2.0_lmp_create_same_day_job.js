@@ -82,8 +82,6 @@ define([
         details: context.request.parameters
       });
 
-      //{"job_type":"one-off","date":"2026-06-16","instructions":"","auspost_email":"no-reply@auspost.com.au","service_internal_id":"null","service_ampo_internal_id":"null","service_pmpo_internal_id":"null","deploy":"1","billing":"customer","compid":"1048144","is_free_job":"true","auspost_phone":"13 13 18","auspost_lng":"151.197906","auspost_first_name":"Australia","service_pmpo_rate":"null","auspost_lat":"-33.915963","service_name":"site-to-australia post","auspost_company":"ALEXANDRIA BUSINESS HUB","auspost_last_name":"Post","service_h2h_rate":"null","script":"2650","auspost_state":"NSW","preferred_time":"","auspost_address":"10-12 RALPH STREET","service_ampo_rate":"null","auspost_suburb":"ALEXANDRIA","job_id":"sAWj3drvkiyHv36Bqc76","parent_id":"","ns-at":"AAEJ7tMQwOy-VLSQwqUcq11USKGh9PAqMVQtMt6Mu_VXgYTiUyM","service_h2h_internal_id":"null","auspost_postcode":"2015","customer_id":"2005972","request_id":"MUCai9UA3ANVh7NTdqqX"}
-
       //GENERATE THE ACCESS TOKEN USING LOGIN CREDENTIALS
       var tokenBody =
         '{"email":"ankith.ravindran@mailplus.com.au","password":"123456aA","returnSecureToken":true}';
@@ -108,6 +106,8 @@ define([
       var idToken = responseAccessTokenObj.idToken;
       // idToken = 'ya29.a0ATi6K2uGzEXpA07xm1-OI2-D9r41aWvNVY41S-Vnc4HXGKC6h4sbss8KmNWJIr_4Kb3XBMIjS8HNxwCTfHwQDJl5aupTem3HWohun97glrBvdUATOQcHkRTHyruqFZ1tYV5-lO6xv5o5k_P-MmmQ-xnLKA0FFuA7eaAvaIWledMhISrjZslqYeOca8O6kfBe7nl2wYcaCgYKAawSARASFQHGX2Mik7hiK6ZgPGfhVO_d8ecJ-A0206'
       var refreshToken = responseAccessTokenObj.refreshToken;
+
+      //{"job_type":"one-off","date":"2026-06-17","instructions":"","auspost_email":"no-reply@auspost.com.au","service_internal_id":"null","service_ampo_internal_id":"null","service_pmpo_internal_id":"134164","deploy":"1","billing":"customer","compid":"1048144","is_free_job":"false","auspost_phone":"13 13 18","auspost_lng":"151.197906","auspost_first_name":"Australia","service_pmpo_rate":"15","auspost_lat":"-33.915963","service_name":"site-to-australia post","auspost_company":"ALEXANDRIA BUSINESS HUB","auspost_last_name":"Post","service_h2h_rate":"null","script":"2650","auspost_state":"NSW","preferred_time":"","auspost_address":"10-12 RALPH STREET","service_ampo_rate":"null","auspost_suburb":"ALEXANDRIA","job_id":"S7PFnsi6YJV1Ory5plah","parent_id":"","ns-at":"AAEJ7tMQwOy-VLSQwqUcq11USKGh9PAqMVQtMt6Mu_VXgYTiUyM","service_h2h_internal_id":"null","auspost_postcode":"2015","customer_id":"2005972","request_id":"TfH3TRs6597nQCsgfqGX"}
 
       //Customer Details
       var customerInternalId = context.request.parameters.customer_id;
@@ -435,7 +435,7 @@ define([
           auspostFirstName + " " + auspostLastName,
           "",
           auspostEmail,
-          auspostPhone,
+          null,
           jobDate,
           stopNameForDelivery,
           activeOperator,
@@ -597,7 +597,7 @@ define([
           auspostFirstName + " " + auspostLastName,
           "",
           auspostEmail,
-          auspostPhone,
+          null,
           jobDate,
           stopNameForPickup,
           activeOperator,
@@ -1206,7 +1206,7 @@ define([
       value: 4
     });
     app_job_group_rec.setValue({
-      fieldId: "custrecord_jobgroup_prem_id",
+      fieldId: "custrecord_lmp_job_id",
       value: localMileJobID
     });
     var app_job_group_id = app_job_group_rec.save();

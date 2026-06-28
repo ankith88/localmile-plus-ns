@@ -120,6 +120,11 @@ define([
         headers: apiHeaders
       });
 
+      // log.debug({
+      //   title: "responseProspectPlusLeadDocument",
+      //   details: responseProspectPlusLeadDocument
+      // });
+
       var dbProspectPlusBody = responseProspectPlusLeadDocument.body;
 
       log.audit({
@@ -127,10 +132,23 @@ define([
         details: dbProspectPlusBody
       });
 
-      var responseObj = JSON.parse(dbProspectPlusBody);
+      //{ "name": "projects/mailplus-outbound-leads-crm/databases/(default)/documents/leads/2006779", "fields": { "customerPhone": { "stringValue": "0402712233" }, "customerEntityId": { "stringValue": "71229051" }, "netsuiteLeadStatus": { "stringValue": "SUSPECT-Hot Lead" }, "zip": { "stringValue": "2000" }, "address1": { "stringValue": "- None -" }, "state": { "stringValue": "NSW" }, "salesRepAssigned": { "stringValue": "Lee Russell" }, "industrySubCategory": { "stringValue": "- None -" }, "longitude": { "stringValue": "151.2081213" }, "customerStatus": { "stringValue": "Hot Lead" }, "street": { "stringValue": "175 Pitt Street" }, "customerIndustryCategory": { "stringValue": "- None -" }, "leadType": { "stringValue": "Service" }, "companyName": { "stringValue": "Test New Website 20260618 V4" }, "bucket": { "stringValue": "inbound" }, "salesRecordInternalId": { "stringValue": "415562" }, "internalid": { "stringValue": "2006779" }, "customerEmail": { "stringValue": "ankith88+20260618V4@gmail.com" }, "franchisee": { "stringValue": "Waterloo" }, "dateLeadEntered": { "stringValue": "17/6/2026" }, "latitude": { "stringValue": "-33.8686989" }, "customerServiceEmail": { "stringValue": "ankith88+20260618V4@gmail.com" }, "industryCategory": { "stringValue": "- None -" }, "customerSource": { "stringValue": "Inbound - New Website" }, "salesRepAssignedCalendlyLink": { "stringValue": "https://calendly.com/lee-russell-mailplus/mailplus-intro-call-lee" }, "city": { "stringValue": "Sydney" }, "accountManagerAssigned": { "stringValue": "Lee Russell" }, "mpexInvoicingCycle": { "stringValue": "null" }, "franchisee_id": { "stringValue": "1645493" }, "customerSalesRep": { "stringValue": "Lee Russell" }, "customerCampaign": { "stringValue": "Digital Lead Campaign" }, "websiteUrl": { "stringValue": "" } }, "createTime": "2026-06-18T04:02:33.372383Z", "updateTime": "2026-06-18T20:35:03.966943Z" }
 
+      email.send({
+        author: 112209, //MailPlus team
+        body: dbProspectPlusBody,
+        recipients: "ankith.ravindran@mailplus.com.au",
+        subject: "Lead Synced to Firebase - " + internalid
+      });
+
+      var responseObj = JSON.parse(dbProspectPlusBody);
+      var pp_franchisee_id = null;
+      var pp_franchisee_name = null;
       //Check if fields exist
       if (!isNullorEmpty(responseObj.fields)) {
+        pp_franchisee_id = responseObj.fields.franchisee_id.stringValue;
+        pp_franchisee_name = responseObj.fields.franchisee.stringValue;
+
         //READ AND SYNC DISCOVERY QUESTIONS
         if (!isNullorEmpty(responseObj.fields.discoveryData)) {
           var discoveryQuestionsMap = responseObj.fields.discoveryData.mapValue;
@@ -1419,12 +1437,20 @@ define([
       });
       var partnerRecord = record.load({
         type: record.Type.PARTNER,
-        id: franchiseeInternalID
+        id: pp_franchisee_id
       });
       var franchiseeNominatedAPID = partnerRecord.getValue({
         fieldId: "custentity_ap_nominated_corp_po"
       });
 
+      var apName = null;
+      var apAddr1 = null;
+      var apStreet = null;
+      var apSuburb = null;
+      var apState = null;
+      var apPostcode = null;
+      var apLatitude = null;
+      var apLongitude = null;
       if (!isNullorEmpty(franchiseeNominatedAPID)) {
         //Load NCL
         var nclRecord = record.load({
@@ -1432,28 +1458,28 @@ define([
           id: franchiseeNominatedAPID
         });
 
-        var apName = nclRecord.getValue({
+        apName = nclRecord.getValue({
           fieldId: "name"
         });
-        var apAddr1 = nclRecord.getValue({
+        apAddr1 = nclRecord.getValue({
           fieldId: "custrecord_ap_lodgement_addr1"
         });
-        var apStreet = nclRecord.getValue({
+        apStreet = nclRecord.getValue({
           fieldId: "custrecord_ap_lodgement_addr2"
         });
-        var apSuburb = nclRecord.getValue({
+        apSuburb = nclRecord.getValue({
           fieldId: "custrecord_ap_lodgement_suburb"
         });
-        var apState = nclRecord.getText({
+        apState = nclRecord.getText({
           fieldId: "custrecord_ap_lodgement_site_state"
         });
-        var apPostcode = nclRecord.getValue({
+        apPostcode = nclRecord.getValue({
           fieldId: "custrecord_ap_lodgement_postcode"
         });
-        var apLatitude = nclRecord.getValue({
+        apLatitude = nclRecord.getValue({
           fieldId: "custrecord_ap_lodgement_lat"
         });
-        var apLongitude = nclRecord.getValue({
+        apLongitude = nclRecord.getValue({
           fieldId: "custrecord_ap_lodgement_long"
         });
       }
@@ -1559,7 +1585,7 @@ define([
       });
       customer_comm_reg.setValue({
         fieldId: "custrecord_franchisee",
-        value: franchiseeInternalID
+        value: pp_franchisee_id
       });
       customer_comm_reg.setValue({
         fieldId: "custrecord_wkly_svcs",
@@ -1617,7 +1643,7 @@ define([
 
       serviceRecord.setValue({
         fieldId: "custrecord_service_franchisee",
-        value: franchiseeInternalID
+        value: pp_franchisee_id
       });
 
       serviceRecord.setValue({
@@ -1657,7 +1683,7 @@ define([
 
       new_service_change_record.setValue({
         fieldId: "custrecord_servicechg_old_zee",
-        value: franchiseeInternalID
+        value: pp_franchisee_id
       });
 
       new_service_change_record.setValue({
@@ -1705,7 +1731,8 @@ define([
       customerDetails2.customerPhone = customerPhone;
       customerDetails2.customerServiceEmail = customerServiceEmail;
       customerDetails2.extraWeightCharges = "3.50";
-      customerDetails2.franchisee = franchiseeInternalID;
+      customerDetails2.franchisee = pp_franchisee_id;
+      customerDetails2.franchiseeName = pp_franchisee_name;
       customerDetails2.franchiseeTerritoryJSON = [];
       zeeSuburbMappingJSON.forEach(function (suburb) {
         var stringValue =
@@ -1735,7 +1762,10 @@ define([
         '"customerEntityId": {"stringValue": "' + customerEntityId + '"},';
       customerDetails +=
         '"companyName": {"stringValue": "' + companyName + '"},';
-      customerDetails += '"franchisee": {"stringValue": "' + franchisee + '"},';
+      customerDetails +=
+        '"franchisee": {"stringValue": "' + pp_franchisee_id + '"},';
+      customerDetails +=
+        '"franchiseeName": {"stringValue": "' + pp_franchisee_name + '"},';
       customerDetails +=
         '"franchiseeTerritoryJSON": {"arrayValue": { "values": [';
       zeeSuburbMappingJSON.forEach(function (suburb) {
@@ -1875,6 +1905,10 @@ define([
         value: 1
       });
 
+      customerRecord.setValue({
+        fieldId: "partner",
+        value: pp_franchisee_id
+      });
       customerRecord.setValue({
         fieldId: "entitystatus",
         value: 83 //LocalMile Pending

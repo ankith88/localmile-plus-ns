@@ -42,7 +42,7 @@ define([
   var zee = 0;
 
   var localMileJobID = null;
-  var lpoHubJobID = null;
+  var localmilePlusJobID = null;
   var localMileJobCustomerInternalID = null;
 
   function onRequest(context) {
@@ -60,6 +60,8 @@ define([
         details: context.request.parameters
       });
 
+      //{"jobid":"29294939","compid":"1048144","ns-at":"AAEJ7tMQqWxV-IxJ7XgqmIEhRWB5hJ8yagkr0mxsAdPzko1qCQA","jobgroupid":"21187446","operatorid":"1363","extras[]":"","script":"2655","deploy":"1"}
+
       var jobId = context.request.parameters.jobid;
       var jobGroupJobIdString = context.request.parameters.jobgroupid;
       var jobGroupIdArray = jobGroupJobIdString.split("_");
@@ -67,8 +69,6 @@ define([
       var operatorId = context.request.parameters.operatorid;
       var jobStatus = context.request.parameters.jobstatus;
       var incompleteReason = context.request.parameters.reason;
-
-      //{"jobid":"29272226","compid":"1048144","ns-at":"AAEJ7tMQ_heEJ7Twdq9DR8GTAVR8nRVdVzyfrx2Yv_2S_OgJiUs","jobgroupid":"21173635_29272226","operatorid":"880","script":"2531","deploy":"1"}
 
       log.debug({
         title: "jobGroupJobIdString",
@@ -100,7 +100,7 @@ define([
 
       var responseAccessToken = https.request({
         method: https.Method.POST,
-        url: "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyDklo95QYbj4PGZeKAqRBBzCfFKc9CFoXs",
+        url: "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyCEKfFKLTso-t3Lu6YV8XOpCCBF2az9Hcg",
         headers: apiHeaders,
         body: tokenBody
       });
@@ -143,9 +143,9 @@ define([
           fieldId: "custrecord_jobgroup_service"
         });
         if (appJobGroupServiceText == "AMPO") {
-          appJobGroupServiceText = "LPO - TO - SITE";
+          appJobGroupServiceText = "AUSTRALIA POST - TO - SITE";
         } else if (appJobGroupServiceText == "PMPO") {
-          appJobGroupServiceText = "SITE - TO - LPO";
+          appJobGroupServiceText = "SITE - TO - AUSTRALIA POST";
         }
         var appJobGroupCustomerInternalID = app_job_group_rec.getValue({
           fieldId: "custrecord_jobgroup_customer"
@@ -157,8 +157,8 @@ define([
         localMileJobID = app_job_group_rec.getValue({
           fieldId: "custrecord_jobgroup_prem_id"
         });
-        lpoHubJobID = app_job_group_rec.getValue({
-          fieldId: "custrecord_lpo_hub_job_id"
+        localmilePlusJobID = app_job_group_rec.getValue({
+          fieldId: "custrecord_lmp_job_id"
         });
 
         //Load the Lead Record to get the Parent ID and Company Name
@@ -172,8 +172,8 @@ define([
         var leadCompanyEmail = leadRecord.getValue({
           fieldId: "custentity_email_service"
         });
-        var leadParentInternalID = leadRecord.getValue({
-          fieldId: "parent"
+        var custLinkedPartner = leadRecord.getValue({
+          fieldId: "partner"
         });
 
         //Get Contact Details
@@ -222,53 +222,23 @@ define([
         }
 
         log.debug({
-          title: "Parent Internal ID",
-          details: leadParentInternalID
+          title: "Customer Contact Details",
+          details:
+            "ID: " +
+            primaryContactInternalID +
+            ", Name: " +
+            customerContactFirstName +
+            " " +
+            customerContactLastName +
+            ", Email: " +
+            customerContactEmail +
+            ", Phone: " +
+            customerContactPhone
         });
 
         log.debug({
-          title: "LPO Parent Account Internal ID",
-          details: leadParentInternalID
-        });
-
-        //Load the LPO Parent Account
-        var lpoParentAccountRecord = record.load({
-          type: "customer",
-          id: leadParentInternalID
-        });
-
-        var lpoParentAccountInternalID = lpoParentAccountRecord.getValue({
-          fieldId: "parent"
-        });
-
-        if (isNullorEmpty(lpoParentAccountInternalID)) {
-          var lpoParentLinkedZees = lpoParentAccountRecord.getValue({
-            fieldId: "custentity_lpo_linked_franchisees"
-          });
-          var lpoParentEmail = lpoParentAccountRecord.getValue({
-            fieldId: "custentity_email_service"
-          });
-        } else {
-          var lpoMainParentAccountRecord = record.load({
-            type: "customer",
-            id: lpoParentAccountInternalID
-          });
-
-          var lpoParentLinkedZees = lpoMainParentAccountRecord.getValue({
-            fieldId: "custentity_lpo_linked_franchisees"
-          });
-          var lpoParentEmail = lpoMainParentAccountRecord.getValue({
-            fieldId: "custentity_email_service"
-          });
-        }
-
-        log.debug({
-          title: "LPO Parent Linked Franchisees",
-          details: lpoParentLinkedZees
-        });
-        log.debug({
-          title: "Check if Variable is an array",
-          details: isArrayAlt(lpoParentLinkedZees)
+          title: "Linked Partner ID",
+          details: custLinkedPartner
         });
 
         //Load the App Job Record and update the customer & franchisee details
@@ -294,13 +264,13 @@ define([
           details: serviceLeg
         });
 
-        //Search Name: LPO.PLUS - App Job Groups & App Jobs
-        var lpoPlusAppJobGroupStatusSyncSearch = search.load({
+        //Search Name:LocalMile.PLUS - App Job Groups & App Jobs
+        var localmilePlusAppJobGroupStatusSyncSearch = search.load({
           type: "customrecord_jobgroup",
-          id: "customsearch_localmile_app_job_groups__6"
+          id: "customsearch_localmile_app_job_groups__8"
         });
 
-        lpoPlusAppJobGroupStatusSyncSearch.filters.push(
+        localmilePlusAppJobGroupStatusSyncSearch.filters.push(
           search.createFilter({
             name: "internalid",
             join: null,
@@ -318,84 +288,86 @@ define([
 
         var jobsStatus = "";
 
-        lpoPlusAppJobGroupStatusSyncSearch.run().each(function (searchResult) {
-          var appJobStatus = searchResult.getText({
-            name: "custrecord_job_status",
-            join: "CUSTRECORD_JOB_GROUP"
-          });
-          var appJobCustomerInternalID = searchResult.getValue({
-            name: "internalid",
-            join: "CUSTRECORD_JOBGROUP_CUSTOMER"
-          });
-          var appJobGroupInternalID = searchResult.getValue({
-            name: "internalid"
-          });
-
-          if (
-            !isNullorEmpty(oldJobGroupInternalID) &&
-            oldJobGroupInternalID != appJobGroupInternalID
-          ) {
-            log.debug({
-              title: "jobStatuses",
-              details: jobStatuses
+        localmilePlusAppJobGroupStatusSyncSearch
+          .run()
+          .each(function (searchResult) {
+            var appJobStatus = searchResult.getText({
+              name: "custrecord_job_status",
+              join: "CUSTRECORD_JOB_GROUP"
+            });
+            var appJobCustomerInternalID = searchResult.getValue({
+              name: "internalid",
+              join: "CUSTRECORD_JOBGROUP_CUSTOMER"
+            });
+            var appJobGroupInternalID = searchResult.getValue({
+              name: "internalid"
             });
 
-            var jobGroupStatusToBeUpdated = getJobGroupStatus(jobStatuses);
+            if (
+              !isNullorEmpty(oldJobGroupInternalID) &&
+              oldJobGroupInternalID != appJobGroupInternalID
+            ) {
+              log.debug({
+                title: "jobStatuses",
+                details: jobStatuses
+              });
 
-            log.debug({
-              title: "jobGroupStatusToBeUpdated",
-              details: jobGroupStatusToBeUpdated
-            });
+              var jobGroupStatusToBeUpdated = getJobGroupStatus(jobStatuses);
 
-            var updateJobGroupStatusID = null;
-            var updateFirebaseFinalSync = false;
+              log.debug({
+                title: "jobGroupStatusToBeUpdated",
+                details: jobGroupStatusToBeUpdated
+              });
 
-            if (jobGroupStatusToBeUpdated == "Complete") {
-              jobsStatus = "completed";
-              updateJobGroupStatusID = 1; //Completed
-              updateFirebaseFinalSync = true;
-            } else if (jobGroupStatusToBeUpdated == "Partial") {
-              jobsStatus = "in-progress";
-              updateJobGroupStatusID = 2; //Partial
-            } else if (jobGroupStatusToBeUpdated == "Incomplete") {
-              jobsStatus = "incomplete";
-              updateJobGroupStatusID = 3; //Incomplete
+              var updateJobGroupStatusID = null;
+              var updateFirebaseFinalSync = false;
+
+              if (jobGroupStatusToBeUpdated == "Complete") {
+                jobsStatus = "completed";
+                updateJobGroupStatusID = 1; //Completed
+                updateFirebaseFinalSync = true;
+              } else if (jobGroupStatusToBeUpdated == "Partial") {
+                jobsStatus = "in-progress";
+                updateJobGroupStatusID = 2; //Partial
+              } else if (jobGroupStatusToBeUpdated == "Incomplete") {
+                jobsStatus = "incomplete";
+                updateJobGroupStatusID = 3; //Incomplete
+              }
+
+              if (!isNullorEmpty(updateJobGroupStatusID)) {
+                //Load the App Job Group and get the Customer ID
+                var app_job_group_rec = record.load({
+                  type: "customrecord_jobgroup",
+                  id: oldJobGroupInternalID
+                });
+                app_job_group_rec.setValue({
+                  fieldId: "custrecord_jobgroup_status",
+                  value: updateJobGroupStatusID
+                });
+                var app_job_group_id = app_job_group_rec.save();
+
+                log.audit({
+                  title: "App Job Group Status Updated",
+                  details:
+                    "App Job Group ID: " +
+                    app_job_group_id +
+                    ", Status: " +
+                    updateJobGroupStatusID
+                });
+              }
+              jobStatuses = [];
+              oldJobGroupInternalID = null;
+              oldCustomerInternalID = null;
             }
 
-            if (!isNullorEmpty(updateJobGroupStatusID)) {
-              //Load the App Job Group and get the Customer ID
-              var app_job_group_rec = record.load({
-                type: "customrecord_jobgroup",
-                id: oldJobGroupInternalID
-              });
-              app_job_group_rec.setValue({
-                fieldId: "custrecord_jobgroup_status",
-                value: updateJobGroupStatusID
-              });
-              var app_job_group_id = app_job_group_rec.save();
+            jobStatuses.push(appJobStatus);
 
-              log.audit({
-                title: "App Job Group Status Updated",
-                details:
-                  "App Job Group ID: " +
-                  app_job_group_id +
-                  ", Status: " +
-                  updateJobGroupStatusID
-              });
-            }
-            jobStatuses = [];
-            oldJobGroupInternalID = null;
-            oldCustomerInternalID = null;
-          }
-
-          jobStatuses.push(appJobStatus);
-
-          oldJobGroupInternalID = appJobGroupInternalID;
-          oldCustomerInternalID = appJobCustomerInternalID;
-          oldLocalMileJobID = localMileJobID;
-          jobGroupCount++;
-          return true;
-        });
+            oldJobGroupInternalID = appJobGroupInternalID;
+            oldCustomerInternalID = appJobCustomerInternalID;
+            oldLocalMileJobID = localMileJobID;
+            jobGroupCount++;
+            return true;
+          });
 
         if (jobGroupCount > 0) {
           log.debug({
@@ -447,11 +419,11 @@ define([
           }
         }
 
-        if (!isNullorEmpty(lpoHubJobID)) {
+        if (!isNullorEmpty(localmilePlusJobID)) {
           //If Completed
           var updateJobCollectionJSON = {
             data: {
-              jobId: String(lpoHubJobID),
+              jobId: String(localmilePlusJobID),
               collectionName: "jobs",
               status: "" + jobsStatus + "",
               stops: [{ index: parseInt(serviceLeg - 1), status: "completed" }]
@@ -464,7 +436,7 @@ define([
           });
 
           var firebaseUpdateURL =
-            "https://us-central1-mp-lpo-connect.cloudfunctions.net/updateJobStatus";
+            "https://us-central1-localmile-plus.cloudfunctions.net/updateJobStatus";
           var apiHeaders = {};
           apiHeaders["Content-Type"] = "application/json";
           apiHeaders["Accept"] = "*/*";
@@ -490,85 +462,66 @@ define([
             details: myresponse_code
           });
 
-          //Send Email to LPO when stop has been completed by the operator for the day.
-          if (!isNullorEmpty(lpoParentEmail)) {
-            var emailSubject = "Stop Completed by Operator";
-            // var emailBody = "Dear LPO,<br><br>";
-            // emailBody +=
-            // 	"We would like to inform you that the stop with ID " +
-            // 	lpoHubJobID +
-            // 	" has been completed by the operator for the day.<br><br>";
-            // emailBody += "Best regards,<br>";
-            // emailBody += "MailPlus Team";
-
-            // email.send({
-            // 	author: 112209, //MailPlus Team
-            // 	body: emailBody,
-            // 	recipients: [lpoParentEmail],
-            // 	cc: [
-            // 		"michael.mcdaid@mailplus.com.au",
-            // 		"kerry.oneill@mailplus.com.au",
-            // 		"mailplusit@mailplus.com.au"
-            // 	],
-            // 	subject: emailSubject,
-            // 	relatedRecords: { entityId: leadParentInternalID }
-            // });
-
-            //Send Email using bookings@lpo.plus domain using the LPO.PLUS Application API.
+          //Send Email to Customer when only the delivery stop has been completed by the operator for the day.
+          if (!isNullorEmpty(customerContactEmail) && serviceLeg == 2) {
+            if (serviceLeg == 2) {
+              var emailSubject = "Your Delivery has been Completed";
+            } else if (serviceLeg == 1) {
+              var emailSubject = "Your Pickup has been Completed";
+            }
 
             var emailBody =
               "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><style>.email-container{font-family: 'Fraunces', serif;max-width:600px;margin:0 auto;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,0.05);border:1px solid #f0f0f0;}.header{background-color:#095c7b;padding:40px 20px;text-align:center;}.header h1{color:#ffffff;margin:0;font-size:24px;font-weight:300;letter-spacing:1px;}.header span{color:#EAF044;font-weight:bold;}.content{padding:40px 30px;color:#333333;line-height:1.6;}.greeting{font-size:18px;margin-bottom:20px;color:#095c7b;font-weight:bold;}.action-box{background-color:#f8fafb;border-radius:8px;padding:25px;margin:30px 0;border-left:4px solid #EAF044;}.button-container{text-align:center;margin:40px 0;}.btn-primary{background-color:#EAF044;color:#095c7b;padding:16px 32px;text-decoration:none;font-weight:bold;border-radius:8px;display:inline-block;transition:background 0.3s;box-shadow:0 4px 12px rgba(234,240,68,0.3);text-transform:uppercase;}.footer{background-color:#f4f7f8;padding:30px;text-align:center;font-size:12px;color:#999;}.footer p{margin:5px 0;}.job-details { background-color: #f8fafb; border-radius: 8px; padding: 25px; margin: 30px 0; border-left: 4px solid #EAF044; } .detail-row { margin-bottom: 12px; display: flex; } .detail-label { font-weight: bold; width: 120px; color: #666; font-size: 13px; text-transform: uppercase; } .detail-value { color: #095c7b; font-weight: 600; }</style></head><body>";
-
+            var year = new Date().getFullYear();
+            //If stop 1 is completed then show the pickup has been completed, if stop 2 is completed then show the delivery has been completed. This can be identified based on the service leg value in the job record.
             if (serviceLeg == 1) {
               emailBody +=
-                '<div class="email-container"><div class="header"><h1>LPO<span>.PLUS</span></h1></div><div class="content"><div class="greeting">Service Completed</div><p>Hi,</p><p>Great news! Your logistics pickup for <strong>' +
-                leadCompanyName +
-                "</strong> has been successfully completed by our team.</p>";
+                '<div class="email-container"><div class="header"><h1>localmile<span>.plus</span></h1></div><div class="content"><div class="greeting">Service Completed</div><p>Hi,</p><p>Great news! Your logistics pickup has been successfully completed by our team.</p>';
               //Job Details Section
               emailBody +=
                 '<div class="job-details"><div class="detail-row"><span class="detail-label">Reference:</span><span class="detail-value">' +
-                lpoHubJobID +
+                localmilePlusJobID +
                 '</span></div><div class="detail-row"><span class="detail-label">Service:</span><span class="detail-value">' +
                 appJobGroupServiceText +
                 '</span></div><div class="detail-row"><span class="detail-label">Status:</span><span class="detail-value">COMPLETED</span></div></div>';
             } else {
               emailBody +=
-                '<div class="email-container"><div class="header"><h1>LPO<span>.PLUS</span></h1></div><div class="content"><div class="greeting">Service Completed</div><p>Hi,</p><p>Great news! Your logistics delivery for <strong>' +
-                leadCompanyName +
-                "</strong> has been successfully completed by our team.</p></div>";
+                '<div class="email-container"><div class="header"><h1>localmile<span>.plus</span></h1></div><div class="content"><div class="greeting">Service Completed</div><p>Hi,</p><p>Great news! Your logistics delivery has been successfully completed by our team.</p>';
               //Job Details Section
               emailBody +=
                 '<div class="job-details"><div class="detail-row"><span class="detail-label">Reference:</span><span class="detail-value">' +
-                lpoHubJobID +
+                localmilePlusJobID +
                 '</span></div><div class="detail-row"><span class="detail-label">Service:</span><span class="detail-value">' +
                 appJobGroupServiceText +
                 '</span></div><div class="detail-row"><span class="detail-label">Status:</span><span class="detail-value">COMPLETED</span></div></div>';
             }
 
             emailBody +=
-              '<div class="footer"><p><strong>lpo.plus</strong> | Local logistics, made simple.</p><p>Powered by MailPlus Australia</p><p style="margin-top:15px;">&copy; ' +
+              '<div class="footer"><p><strong>localmile.plus</strong> | Local logistics, made simple.</p><p>Powered by MailPlus Australia</p><p style="margin-top:15px;">&copy; ' +
               year +
-              " lpo.plus. All rights reserved.</p></div></div></body></html>";
+              " localmile.plus. All rights reserved.</p></div></div></body></html>";
 
             var sendOutEmailJSON = {
-              to: lpoParentEmail,
-              cc: ["dispatcher@mailplus.com.au"],
+              from: "localmile@mailplus.com.au",
+              to: customerContactEmail,
+              cc: "",
               subject: emailSubject,
               html: emailBody,
               metadata: {
-                lpoId: "",
                 customerId: appJobGroupCustomerInternalID,
-                jobId: lpoHubJobID
+                jobId: localmilePlusJobID
               }
             };
+            log.debug({
+              title: "sendOutEmailJSON",
+              details: JSON.stringify(sendOutEmailJSON)
+            });
+
             var firebaseUpdateURL =
-              "https://sendemailfromnetsuite-65tt2ndmpq-uc.a.run.app";
+              "https://prospectplus.com.au/api/integrations/netsuite/send-email";
 
             var apiHeaders = {};
             apiHeaders["Content-Type"] = "application/json";
-            apiHeaders["x-api-key"] =
-              "f7d8c2e1b0a943ef8215d6c7b8a90123fe456789abcd0123456789abcdef0123";
-            //f7d8c2e1b0a943ef8215d6c7b8a90123fe456789abcd0123456789abcdef0123
 
             var response = https.request({
               method: https.Method.POST,
@@ -576,99 +529,8 @@ define([
               body: JSON.stringify(sendOutEmailJSON),
               headers: apiHeaders
             });
-
             var myresponse_body = response.body;
             var myresponse_code = response.code;
-
-            log.debug({
-              title: "myresponse_body",
-              details: myresponse_body
-            });
-
-            log.debug({
-              title: "myresponse_code",
-              details: myresponse_code
-            });
-
-            //Send Email to End Customer when stop 2 has been completed by the operator for the day.
-            if (!isNullorEmpty(customerContactEmail)) {
-              if (serviceLeg == 2) {
-                var emailSubject = "Your Delivery has been Completed";
-              } else if (serviceLeg == 1) {
-                var emailSubject = "Your Pickup has been Completed";
-              }
-
-              var emailBody =
-                "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><style>.email-container{font-family: 'Fraunces', serif;max-width:600px;margin:0 auto;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,0.05);border:1px solid #f0f0f0;}.header{background-color:#095c7b;padding:40px 20px;text-align:center;}.header h1{color:#ffffff;margin:0;font-size:24px;font-weight:300;letter-spacing:1px;}.header span{color:#EAF044;font-weight:bold;}.content{padding:40px 30px;color:#333333;line-height:1.6;}.greeting{font-size:18px;margin-bottom:20px;color:#095c7b;font-weight:bold;}.action-box{background-color:#f8fafb;border-radius:8px;padding:25px;margin:30px 0;border-left:4px solid #EAF044;}.button-container{text-align:center;margin:40px 0;}.btn-primary{background-color:#EAF044;color:#095c7b;padding:16px 32px;text-decoration:none;font-weight:bold;border-radius:8px;display:inline-block;transition:background 0.3s;box-shadow:0 4px 12px rgba(234,240,68,0.3);text-transform:uppercase;}.footer{background-color:#f4f7f8;padding:30px;text-align:center;font-size:12px;color:#999;}.footer p{margin:5px 0;}.job-details { background-color: #f8fafb; border-radius: 8px; padding: 25px; margin: 30px 0; border-left: 4px solid #EAF044; } .detail-row { margin-bottom: 12px; display: flex; } .detail-label { font-weight: bold; width: 120px; color: #666; font-size: 13px; text-transform: uppercase; } .detail-value { color: #095c7b; font-weight: 600; }</style></head><body>";
-              var year = new Date().getFullYear();
-              //If stop 1 is completed then show the pickup has been completed, if stop 2 is completed then show the delivery has been completed. This can be identified based on the service leg value in the job record.
-              if (serviceLeg == 1) {
-                emailBody +=
-                  '<div class="email-container"><div class="header"><h1>LPO<span>.PLUS</span></h1></div><div class="content"><div class="greeting">Service Completed</div><p>Hi,</p><p>Great news! Your logistics pickup has been successfully completed by our team.</p>';
-                //Job Details Section
-                emailBody +=
-                  '<div class="job-details"><div class="detail-row"><span class="detail-label">Reference:</span><span class="detail-value">' +
-                  lpoHubJobID +
-                  '</span></div><div class="detail-row"><span class="detail-label">Service:</span><span class="detail-value">' +
-                  appJobGroupServiceText +
-                  '</span></div><div class="detail-row"><span class="detail-label">Status:</span><span class="detail-value">COMPLETED</span></div></div>';
-              } else {
-                emailBody +=
-                  '<div class="email-container"><div class="header"><h1>LPO<span>.PLUS</span></h1></div><div class="content"><div class="greeting">Service Completed</div><p>Hi,</p><p>Great news! Your logistics delivery has been successfully completed by our team.</p>';
-                //Job Details Section
-                emailBody +=
-                  '<div class="job-details"><div class="detail-row"><span class="detail-label">Reference:</span><span class="detail-value">' +
-                  lpoHubJobID +
-                  '</span></div><div class="detail-row"><span class="detail-label">Service:</span><span class="detail-value">' +
-                  appJobGroupServiceText +
-                  '</span></div><div class="detail-row"><span class="detail-label">Status:</span><span class="detail-value">COMPLETED</span></div></div>';
-              }
-
-              emailBody +=
-                '<div class="footer"><p><strong>lpo.plus</strong> | Local logistics, made simple.</p><p>Powered by MailPlus Australia</p><p style="margin-top:15px;">&copy; ' +
-                year +
-                " lpo.plus. All rights reserved.</p></div></div></body></html>";
-
-              var sendOutEmailJSON = {
-                to: customerContactEmail,
-                cc: "",
-                subject: emailSubject,
-                html: emailBody,
-                metadata: {
-                  lpoId: "",
-                  customerId: appJobGroupCustomerInternalID,
-                  jobId: lpoHubJobID
-                }
-              };
-              var firebaseUpdateURL =
-                "https://sendemailfromnetsuite-65tt2ndmpq-uc.a.run.app";
-
-              var apiHeaders = {};
-              apiHeaders["Content-Type"] = "application/json";
-              apiHeaders["x-api-key"] =
-                "f7d8c2e1b0a943ef8215d6c7b8a90123fe456789abcd0123456789abcdef0123";
-              //f7d8c2e1b0a943ef8215d6c7b8a90123fe456789abcd0123456789abcdef0123
-
-              // var response = https.request({
-              // 	method: https.Method.POST,
-              // 	url: firebaseUpdateURL,
-              // 	body: JSON.stringify(sendOutEmailJSON),
-              // 	headers: apiHeaders
-              // });
-
-              // var myresponse_body = response.body;
-              // var myresponse_code = response.code;
-
-              // log.debug({
-              // 	title: "myresponse_body",
-              // 	details: myresponse_body
-              // });
-
-              // log.debug({
-              // 	title: "myresponse_code",
-              // 	details: myresponse_code
-              // });
-            }
           }
         }
 
@@ -713,8 +575,8 @@ define([
         localMileJobID = app_job_group_rec.getValue({
           fieldId: "custrecord_jobgroup_prem_id"
         });
-        lpoHubJobID = app_job_group_rec.getValue({
-          fieldId: "custrecord_lpo_hub_job_id"
+        localmilePlusJobID = app_job_group_rec.getValue({
+          fieldId: "custrecord_lmp_job_id"
         });
 
         //Load the Lead Record to get the Parent ID and Company Name
@@ -725,39 +587,13 @@ define([
         var leadCompanyName = leadRecord.getValue({
           fieldId: "companyname"
         });
-        var leadParentInternalID = leadRecord.getValue({
-          fieldId: "parent"
+        var custLinkedPartner = leadRecord.getValue({
+          fieldId: "partner"
         });
 
         log.debug({
-          title: "Parent Internal ID",
-          details: leadParentInternalID
-        });
-
-        log.debug({
-          title: "LPO Parent Account Internal ID",
-          details: leadParentInternalID
-        });
-
-        //Load the LPO Parent Account
-        var lpoParentAccountRecord = record.load({
-          type: "customer",
-          id: leadParentInternalID
-        });
-        var lpoParentLinkedZees = lpoParentAccountRecord.getValue({
-          fieldId: "custentity_lpo_linked_franchisees"
-        });
-        var lpoParentEmail = lpoParentAccountRecord.getValue({
-          fieldId: "custentity_email_service"
-        });
-
-        log.debug({
-          title: "LPO Parent Linked Franchisees",
-          details: lpoParentLinkedZees
-        });
-        log.debug({
-          title: "Check if Variable is an array",
-          details: isArrayAlt(lpoParentLinkedZees)
+          title: "Customer Linked Partner",
+          details: custLinkedPartner
         });
 
         //Load the App Job Record and update the customer & franchisee details
@@ -778,11 +614,11 @@ define([
           ignoreMandatoryFields: true
         });
 
-        if (!isNullorEmpty(lpoHubJobID)) {
+        if (!isNullorEmpty(localmilePlusJobID)) {
           //If Incomplete
           var updateJobCollectionJSON = {
             data: {
-              jobId: String(lpoHubJobID),
+              jobId: String(localmilePlusJobID),
               collectionName: "jobs",
               status: "incomplete",
               stops: [{ index: parseInt(serviceLeg - 1), status: "incomplete" }]
@@ -790,7 +626,7 @@ define([
           };
 
           var firebaseUpdateURL =
-            "https://us-central1-mp-lpo-connect.cloudfunctions.net/updateJobStatus";
+            "https://us-central1-localmile-plus.cloudfunctions.net/updateJobStatus";
           var apiHeaders = {};
           apiHeaders["Content-Type"] = "application/json";
           apiHeaders["Accept"] = "*/*";
@@ -816,50 +652,51 @@ define([
             details: myresponse_code
           });
 
-          //Send Email to LPO when stop has been incompleted by the operator for the day.
-          if (!isNullorEmpty(lpoParentEmail)) {
+          //Send Email to Customer when stop has been incompleted by the operator for the day.
+          if (!isNullorEmpty(customerContactEmail)) {
             var emailBody =
               "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><style>.email-container{font-family: 'Fraunces', serif;max-width:600px;margin:0 auto;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,0.05);border:1px solid #f0f0f0;}.header{background-color:#095c7b;padding:40px 20px;text-align:center;}.header h1{color:#ffffff;margin:0;font-size:24px;font-weight:300;letter-spacing:1px;}.header span{color:#EAF044;font-weight:bold;}.content{padding:40px 30px;color:#333333;line-height:1.6;}.greeting{font-size:18px;margin-bottom:20px;color:#095c7b;font-weight:bold;}.action-box{background-color:#f8fafb;border-radius:8px;padding:25px;margin:30px 0;border-left:4px solid #EAF044;}.button-container{text-align:center;margin:40px 0;}.btn-primary{background-color:#EAF044;color:#095c7b;padding:16px 32px;text-decoration:none;font-weight:bold;border-radius:8px;display:inline-block;transition:background 0.3s;box-shadow:0 4px 12px rgba(234,240,68,0.3);text-transform:uppercase;}.footer{background-color:#f4f7f8;padding:30px;text-align:center;font-size:12px;color:#999;}.footer p{margin:5px 0;}.job-details { background-color: #f8fafb; border-radius: 8px; padding: 25px; margin: 30px 0; border-left: 4px solid #EAF044; } .detail-row { margin-bottom: 12px; display: flex; } .detail-label { font-weight: bold; width: 120px; color: #666; font-size: 13px; text-transform: uppercase; } .detail-value { color: #095c7b; font-weight: 600; }</style></head>";
             if (serviceLeg == 1) {
               emailBody +=
-                '</head><body><div class="email-container"><div class="header"><h1>LPO<span>.PLUS</span></h1></div><div class="content"><div class="greeting">Service Incomplete</div><p>Hi,</p><p>Unfortunately, your logistics pickup for <strong>' +
+                '</head><body><div class="email-container"><div class="header"><h1>localmile<span>.plus</span></h1></div><div class="content"><div class="greeting">Service Incomplete</div><p>Hi,</p><p>Unfortunately, your logistics pickup for <strong>' +
                 leadCompanyName +
-                '</strong> has been marked as incomplete by our team.</p><div class="status-box"><p style="margin:0;color:#095c7b;"><strong>Status:</strong> Incomplete</p></div><p style="font-size:14px;color:#666;">Please contact LPO.PLUS for further assistance.</p></div>';
+                '</strong> has been marked as incomplete by our team.</p><div class="status-box"><p style="margin:0;color:#095c7b;"><strong>Status:</strong> Incomplete</p></div><p style="font-size:14px;color:#666;">Please contact MailPlus for further assistance.</p></div>';
             } else {
               emailBody +=
-                '</head><body><div class="email-container"><div class="header"><h1>LPO<span>.PLUS</span></h1></div><div class="content"><div class="greeting">Service Incomplete</div><p>Hi,</p><p>Unfortunately, your logistics delivery for <strong>' +
+                '</head><body><div class="email-container"><div class="header"><h1>localmile<span>.plus</span></h1></div><div class="content"><div class="greeting">Service Incomplete</div><p>Hi,</p><p>Unfortunately, your logistics delivery for <strong>' +
                 leadCompanyName +
-                '</strong> has been marked as incomplete by our team.</p><div class="status-box"><p style="margin:0;color:#095c7b;"><strong>Status:</strong> Incomplete</p></div><p style="font-size:14px;color:#666;">Please contact LPO.PLUS for further assistance.</p></div>';
+                '</strong> has been marked as incomplete by our team.</p><div class="status-box"><p style="margin:0;color:#095c7b;"><strong>Status:</strong> Incomplete</p></div><p style="font-size:14px;color:#666;">Please contact MailPlus for further assistance.</p></div>';
             }
 
             emailBody +=
-              '<div class="footer"><p><strong>lpo.plus</strong> | Local logistics, made simple.</p><p>Powered by MailPlus Australia</p><p style="margin-top:15px;">&copy; ' +
+              '<div class="footer"><p><strong>localmile.plus</strong> | Local logistics, made simple.</p><p>Powered by MailPlus Australia</p><p style="margin-top:15px;">&copy; ' +
               year +
-              " lpo.plus. All rights reserved.</p></div></div></body></html>";
+              " localmile.plus. All rights reserved.</p></div></div></body></html>";
 
             var sendOutEmailJSON = {
-              to: lpoParentEmail,
+              from: "localmile@mailplus.com.au",
+              to: customerContactEmail,
               cc: [
-                "michael.mcdaid@mailplus.com.au",
-                "kerry.oneill@mailplus.com.au",
-                "mailplusit@mailplus.com.au"
+                "customerservice@mailplus.com.au",
+                "dispatcher@mailplus.com.au"
               ],
               subject: emailSubject,
               html: emailBody,
               metadata: {
-                lpoId: "",
                 customerId: appJobGroupCustomerInternalID,
-                jobId: lpoHubJobID
+                jobId: localmilePlusJobID
               }
             };
+            log.debug({
+              title: "sendOutEmailJSON",
+              details: JSON.stringify(sendOutEmailJSON)
+            });
+
             var firebaseUpdateURL =
-              "https://sendemailfromnetsuite-65tt2ndmpq-uc.a.run.app";
+              "https://prospectplus.com.au/api/integrations/netsuite/send-email";
 
             var apiHeaders = {};
             apiHeaders["Content-Type"] = "application/json";
-            apiHeaders["x-api-key"] =
-              "f7d8c2e1b0a943ef8215d6c7b8a90123fe456789abcd0123456789abcdef0123";
-            //f7d8c2e1b0a943ef8215d6c7b8a90123fe456789abcd0123456789abcdef0123
 
             var response = https.request({
               method: https.Method.POST,
@@ -867,7 +704,6 @@ define([
               body: JSON.stringify(sendOutEmailJSON),
               headers: apiHeaders
             });
-
             var myresponse_body = response.body;
             var myresponse_code = response.code;
 
@@ -884,9 +720,9 @@ define([
             //Send Email to End Customer when stop 2 has been completed by the operator for the day.
             if (!isNullorEmpty(leadCompanyEmail)) {
               if (serviceLeg == 2) {
-                var emailSubject = "Your Delivery has been Completed";
+                var emailSubject = "Your Delivery has not been Completed";
               } else if (serviceLeg == 1) {
-                var emailSubject = "Your Pickup has been Completed";
+                var emailSubject = "Your Pickup has not been Completed";
               }
 
               var emailBody =
@@ -895,16 +731,16 @@ define([
               //If stop 1 is completed then show the pickup has been completed, if stop 2 is completed then show the delivery has been completed. This can be identified based on the service leg value in the job record.
               if (serviceLeg == 1) {
                 emailBody +=
-                  '</head><body><div class="email-container"><div class="header"><h1>LPO<span>.PLUS</span></h1></div><div class="content"><div class="greeting">Service Incomplete</div><p>Hi,</p><p>Unfortunately, your logistics pickup has been marked as incomplete by our team.</p><div class="status-box"><p style="margin:0;color:#095c7b;"><strong>Status:</strong> Incomplete</p></div><p style="font-size:14px;color:#666;">Please contact LPO.PLUS for further assistance.</p></div>';
+                  '</head><body><div class="email-container"><div class="header"><h1>localmile<span>.plus</span></h1></div><div class="content"><div class="greeting">Service Incomplete</div><p>Hi,</p><p>Unfortunately, your logistics pickup has been marked as incomplete by our team.</p><div class="status-box"><p style="margin:0;color:#095c7b;"><strong>Status:</strong> Incomplete</p></div><p style="font-size:14px;color:#666;">Please contact MailPlus for further assistance.</p></div>';
               } else {
                 emailBody +=
-                  '</head><body><div class="email-container"><div class="header"><h1>LPO<span>.PLUS</span></h1></div><div class="content"><div class="greeting">Service Incomplete</div><p>Hi,</p><p>Unfortunately, your logistics delivery has been marked as incomplete by our team.</p><div class="status-box"><p style="margin:0;color:#095c7b;"><strong>Status:</strong> Incomplete</p></div><p style="font-size:14px;color:#666;">Please contact LPO.PLUS for further assistance.</p></div>';
+                  '</head><body><div class="email-container"><div class="header"><h1>localmile<span>.plus</span></h1></div><div class="content"><div class="greeting">Service Incomplete</div><p>Hi,</p><p>Unfortunately, your logistics delivery has been marked as incomplete by our team.</p><div class="status-box"><p style="margin:0;color:#095c7b;"><strong>Status:</strong> Incomplete</p></div><p style="font-size:14px;color:#666;">Please contact MailPlus for further assistance.</p></div>';
               }
 
               emailBody +=
-                '<div class="footer"><p><strong>lpo.plus</strong> | Local logistics, made simple.</p><p>Powered by MailPlus Australia</p><p style="margin-top:15px;">&copy; ' +
+                '<div class="footer"><p><strong>localmile.plus</strong> | Local logistics, made simple.</p><p>Powered by MailPlus Australia</p><p style="margin-top:15px;">&copy; ' +
                 year +
-                " lpo.plus. All rights reserved.</p></div></div></body></html>";
+                " localmile.plus. All rights reserved.</p></div></div></body></html>";
 
               var sendOutEmailJSON = {
                 to: leadCompanyEmail,
@@ -918,37 +754,42 @@ define([
                 metadata: {
                   lpoId: "",
                   customerId: appJobGroupCustomerInternalID,
-                  jobId: lpoHubJobID
+                  jobId: localmilePlusJobID
                 }
               };
+              var sendOutEmailJSON = {
+                from: "localmile@mailplus.com.au",
+                to: customerContactEmail,
+                cc: [
+                  "customerservice@mailplus.com.au",
+                  "dispatcher@mailplus.com.au"
+                ],
+                subject: emailSubject,
+                html: emailBody,
+                metadata: {
+                  customerId: appJobGroupCustomerInternalID,
+                  jobId: localmilePlusJobID
+                }
+              };
+              log.debug({
+                title: "sendOutEmailJSON",
+                details: JSON.stringify(sendOutEmailJSON)
+              });
+
               var firebaseUpdateURL =
-                "https://sendemailfromnetsuite-65tt2ndmpq-uc.a.run.app";
+                "https://prospectplus.com.au/api/integrations/netsuite/send-email";
 
               var apiHeaders = {};
               apiHeaders["Content-Type"] = "application/json";
-              apiHeaders["x-api-key"] =
-                "f7d8c2e1b0a943ef8215d6c7b8a90123fe456789abcd0123456789abcdef0123";
-              //f7d8c2e1b0a943ef8215d6c7b8a90123fe456789abcd0123456789abcdef0123
 
-              // var response = https.request({
-              // 	method: https.Method.POST,
-              // 	url: firebaseUpdateURL,
-              // 	body: JSON.stringify(sendOutEmailJSON),
-              // 	headers: apiHeaders
-              // });
-
-              // var myresponse_body = response.body;
-              // var myresponse_code = response.code;
-
-              // log.debug({
-              // 	title: "myresponse_body",
-              // 	details: myresponse_body
-              // });
-
-              // log.debug({
-              // 	title: "myresponse_code",
-              // 	details: myresponse_code
-              // });
+              var response = https.request({
+                method: https.Method.POST,
+                url: firebaseUpdateURL,
+                body: JSON.stringify(sendOutEmailJSON),
+                headers: apiHeaders
+              });
+              var myresponse_body = response.body;
+              var myresponse_code = response.code;
             }
           }
         }

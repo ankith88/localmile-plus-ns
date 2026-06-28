@@ -370,7 +370,7 @@ define([
         var auspostLastName = parsed.data[i].auspostContact.lastName;
         var auspostPhone = parsed.data[i].auspostContact.phone;
         var auspostEmail = parsed.data[i].auspostContact.email;
-        var auspostCompany = parsed.data[i].auspostContact.company;
+        var auspostCompany = parsed.data[i].recipient.company;
 
         //Australia Post Address Details
         var auspostAddress = parsed.data[i].recipient.address;
@@ -508,7 +508,7 @@ define([
             auspostFirstName + " " + auspostLastName,
             "",
             auspostEmail,
-            auspostPhone,
+            null,
             jobDate,
             stopNameForDelivery,
             activeOperator,
@@ -594,7 +594,7 @@ define([
           var firebaseUpdateURL =
             "https://firestore.googleapis.com/v1/projects/localmile-plus/databases/(default)/documents/jobs/" +
             job_id +
-            "?updateMask.fieldPaths=stops&updateMask.fieldPaths=appJobGroupId";
+            "?updateMask.fieldPaths=stops&updateMask.fieldPaths=appJobGroupId&updateMask.fieldPaths=syncedWithNetSuite";
           var apiHeaders = {};
           apiHeaders["Content-Type"] = "application/json";
           apiHeaders["Accept"] = "*/*";
@@ -681,7 +681,7 @@ define([
             auspostFirstName + " " + auspostLastName,
             "",
             auspostEmail,
-            auspostPhone,
+            null,
             jobDate,
             stopNameForPickup,
             activeOperator,

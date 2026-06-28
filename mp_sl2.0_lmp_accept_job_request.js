@@ -72,6 +72,8 @@ define([
 
       //	{"date":"2026-06-16","auspost_first_name":"Australia","auspost_email":"no-reply@auspost.com.au","service_pmpo_rate":"15","auspost_company":"ALEXANDRIA BUSINESS HUB","auspost_last_name":"Post","service_ampo_internal_id":"null","service_h2h_rate":"null","script":"2649","service_pmpo_internal_id":"134164","deploy":"1","frequency":"null","firstName":"","service_ampo_rate":"null","compid":"1048144","job_id":"M49UuhjJVblqVdMwJR4i","parent_id":"","service":"site-to-australia post","ns-at":"AAEJ7tMQX4gDftlZvyZi8scPrWJRKTOWGovx9I5Cz06qXdzpiRU","service_h2h_internal_id":"null","is_free_job":"false","customer_id":"2005972","email":"","auspost_phone":"13 13 18"}
 
+      //{"date":"2026-06-17","auspost_email":"no-reply@auspost.com.au","user_last_name":"null","service_ampo_internal_id":"null","service_pmpo_internal_id":"134164","deploy":"1","frequency":"null","user_first_name":"null","compid":"1048144","user_phone":"null","is_free_job":"false","email":"ankith88+testpud2@gmail.com","auspost_phone":"13 13 18","user_email":"null","auspost_first_name":"Australia","service_pmpo_rate":"15","auspost_company":"ALEXANDRIA BUSINESS HUB","auspost_last_name":"Post","service_h2h_rate":"null","script":"2649","firstName":"Info","service_ampo_rate":"null","job_id":"S7PFnsi6YJV1Ory5plah","parent_id":"","service":"site-to-australia post","ns-at":"AAEJ7tMQX4gDftlZvyZi8scPrWJRKTOWGovx9I5Cz06qXdzpiRU","service_h2h_internal_id":"null","customer_id":"2005972"}
+
       var originalCustomerInternalIdFromLPODB =
         context.request.parameters.customer_id;
 
@@ -193,9 +195,9 @@ define([
         serviceInternalId = serviceH2hInternalId;
       }
 
-      var contactEmail = context.request.parameters.user_email;
-      var contactPhone = context.request.parameters.user_phone;
-      var contactFirstName = context.request.parameters.user_first_name;
+      var contactEmail = context.request.parameters.email;
+      var contactPhone = context.request.parameters.phone;
+      var contactFirstName = context.request.parameters.firstName;
 
       if (isNullorEmpty(zee_id)) {
         zee_id = partnerID;
@@ -250,38 +252,40 @@ define([
 
       emailToCustomerBody += "</body></html>";
 
-      var sendOutEmailJSON = {
-        from: "localmile@mailplus.com.au",
-        to: contactEmail,
-        cc: "",
-        subject: emailToCustomerSubject,
-        html: emailToCustomerBody,
-        metadata: {
-          customerId: originalCustomerInternalIdFromLPODB,
-          jobId: localMilePlusJobId
-        }
-      };
+      if (!isNullorEmpty(contactEmail)) {
+        var sendOutEmailJSON = {
+          from: "localmile@mailplus.com.au",
+          to: contactEmail,
+          cc: "",
+          subject: emailToCustomerSubject,
+          html: emailToCustomerBody,
+          metadata: {
+            customerId: originalCustomerInternalIdFromLPODB,
+            jobId: localMilePlusJobId
+          }
+        };
 
-      log.debug({
-        title: "sendOutEmailJSON",
-        details: JSON.stringify(sendOutEmailJSON)
-      });
+        log.debug({
+          title: "sendOutEmailJSON",
+          details: JSON.stringify(sendOutEmailJSON)
+        });
 
-      var firebaseUpdateURL =
-        "https://prospectplus.com.au/api/integrations/netsuite/send-email";
+        var firebaseUpdateURL =
+          "https://prospectplus.com.au/api/integrations/netsuite/send-email";
 
-      var apiHeaders = {};
-      apiHeaders["Content-Type"] = "application/json";
+        var apiHeaders = {};
+        apiHeaders["Content-Type"] = "application/json";
 
-      var response = https.request({
-        method: https.Method.POST,
-        url: firebaseUpdateURL,
-        body: JSON.stringify(sendOutEmailJSON),
-        headers: apiHeaders
-      });
+        var response = https.request({
+          method: https.Method.POST,
+          url: firebaseUpdateURL,
+          body: JSON.stringify(sendOutEmailJSON),
+          headers: apiHeaders
+        });
 
-      var myresponse_body = response.body;
-      var myresponse_code = response.code;
+        var myresponse_body = response.body;
+        var myresponse_code = response.code;
+      }
 
       log.audit({
         title:
