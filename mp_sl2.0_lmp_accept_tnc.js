@@ -80,6 +80,24 @@ define([
       var zeeId = customerRecord.getValue({
         fieldId: "partner"
       });
+      var companyName = customerRecord.getValue({
+        fieldId: "companyname"
+      });
+      var parentCompanyID = customerRecord.getValue({
+        fieldId: "parent"
+      });
+
+      var pendingStatus = false;
+      if (
+        !isNullorEmpty(companyName) &&
+        companyName.indexOf("IM -") === 0 &&
+        companyName.slice(-8) === "- Parent" &&
+        !isNullorEmpty(parentCompanyID)
+      ) {
+        pendingStatus = false;
+      } else {
+        pendingStatus = true;
+      }
 
       customerRecord.setValue({
         fieldId: "custentity_terms_conditions_agree_date",
@@ -89,10 +107,12 @@ define([
         fieldId: "custentity_terms_conditions_agree",
         value: 1
       });
-      customerRecord.setValue({
-        fieldId: "entitystatus",
-        value: 83 //Customer - LocalMile Pending
-      });
+      if (pendingStatus == true) {
+        customerRecord.setValue({
+          fieldId: "entitystatus",
+          value: 83 //Customer - LocalMile Pending
+        });
+      }
       customerInternalId = customerRecord.save();
 
       //Update Status of Lead in Prospect+

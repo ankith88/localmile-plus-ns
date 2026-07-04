@@ -1442,6 +1442,15 @@ define([
       var franchiseeNominatedAPID = partnerRecord.getValue({
         fieldId: "custentity_ap_nominated_corp_po"
       });
+      var franchiseeContact = partnerRecord.getValue({
+        fieldId: "custentity3"
+      });
+      var franchiseeEmail = partnerRecord.getValue({
+        fieldId: "email"
+      });
+      var franchiseeMobile = partnerRecord.getValue({
+        fieldId: "custentity2"
+      });
 
       var apName = null;
       var apAddr1 = null;
@@ -1546,6 +1555,9 @@ define([
       var salesRecordInternalId = null;
       var salesRecordLastAssigned = null;
       var salesRecordLastAssignedText = null;
+      var accountManagerName = null;
+      var accountManagerEmail = null;
+      var accountManagerMobile = null;
       if (allSalesRecordSearchResultSet.length == 1) {
         salesRecordInternalId = allSalesRecordSearchResultSet[0].getValue({
           name: "internalid"
@@ -1555,6 +1567,18 @@ define([
         });
         salesRecordLastAssigned = allSalesRecordSearchResultSet[0].getValue({
           name: "custrecord_sales_assigned"
+        });
+        accountManagerName = salesRecordLastAssignedText;
+        var employeeRecord = record.load({
+          type: record.Type.EMPLOYEE,
+          id: salesRecordLastAssigned, // Replace with the specific Employee's Internal ID
+          isDynamic: false // Set to true if you want it to emulate UI behavior
+        });
+        accountManagerEmail = employeeRecord.getValue({
+          fieldId: "email"
+        });
+        accountManagerMobile = employeeRecord.getValue({
+          fieldId: "mobilephone"
         });
       }
 
@@ -1713,6 +1737,107 @@ define([
 
       var pmpoServiceChangeRecordInternalId = new_service_change_record.save();
 
+      //LocalMile Trial SERVICE
+      var serviceRecord = record.create({
+        type: "customrecord_service",
+        isDynamic: true
+      });
+      serviceRecord.setValue({ fieldId: "name", value: "LocalMile Trial" });
+
+      serviceRecord.setValue({
+        fieldId: "custrecord_service_price",
+        value: 0
+      });
+      serviceRecord.setValue({
+        fieldId: "custrecord_service",
+        value: 157 //LocalMile Trial Service
+      });
+      serviceRecord.setValue({
+        fieldId: "custrecord_service_comm_reg",
+        value: newCommRegInternalId
+      });
+      serviceRecord.setValue({
+        fieldId: "custrecord_service_customer",
+        value: internalid
+      });
+
+      serviceRecord.setValue({
+        fieldId: "custrecord_service_franchisee",
+        value: franchiseeInternalID
+      });
+
+      serviceRecord.setValue({
+        fieldId: "custrecord_service_day_adhoc",
+        value: true
+      });
+      serviceRecord.setValue({
+        fieldId: "custrecord_service_day_freq_cycle",
+        value: 4
+      });
+      var localmileTrialServiceInternalId = serviceRecord.save();
+      log.audit({
+        title: "LocalMile Trial Service Record Created",
+        details: localmileTrialServiceInternalId
+      });
+
+      localmileTrialInternalID = localmileTrialServiceInternalId;
+      localmileTrialRate = 0;
+
+      //CREATE SERVICE CHANGE RECORD FOR LOCALMILE TRIAL SERVICE
+      var localmileTrialServiceChangeRecord = record.create({
+        type: "customrecord_servicechg",
+        isDynamic: true
+      });
+      localmileTrialServiceChangeRecord.setValue({
+        fieldId: "custrecord_servicechg_date_effective",
+        value: getDateStoreNS()
+      });
+      localmileTrialServiceChangeRecord.setValue({
+        fieldId: "custrecord_servicechg_service",
+        value: localmileTrialServiceInternalId
+      });
+      localmileTrialServiceChangeRecord.setValue({
+        fieldId: "custrecord_servicechg_status",
+        value: 4
+      });
+      localmileTrialServiceChangeRecord.setValue({
+        fieldId: "custrecord_servicechg_old_zee",
+        value: franchiseeInternalID
+      });
+
+      localmileTrialServiceChangeRecord.setValue({
+        fieldId: "custrecord_servicechg_new_price",
+        value: 0
+      });
+      localmileTrialServiceChangeRecord.setValue({
+        fieldId: "custrecord_servicechg_new_freq",
+        value: 6
+      });
+      localmileTrialServiceChangeRecord.setValue({
+        fieldId: "custrecord_servicechg_comm_reg",
+        value: newCommRegInternalId
+      });
+      localmileTrialServiceChangeRecord.setValue({
+        fieldId: "custrecord_servicechg_created",
+        value: 1822062
+      });
+      localmileTrialServiceChangeRecord.setValue({
+        fieldId: "custrecord_servicechg_type",
+        value: "New Customer"
+      });
+      localmileTrialServiceChangeRecord.setValue({
+        fieldId: "custrecord_default_servicechg_record",
+        value: 1
+      });
+
+      var localmileTrialServiceChangeRecordInternalId =
+        localmileTrialServiceChangeRecord.save();
+
+      log.audit({
+        title: "LocalMile Trial Service Change Record Created",
+        details: localmileTrialServiceChangeRecordInternalId
+      });
+
       log.audit({
         title: "PMPO Service Change Record Created",
         details: pmpoServiceChangeRecordInternalId
@@ -1767,6 +1892,12 @@ define([
       customerDetails +=
         '"franchiseeName": {"stringValue": "' + pp_franchisee_name + '"},';
       customerDetails +=
+        '"franchiseeContact": {"stringValue": "' + franchiseeContact + '"},';
+      customerDetails +=
+        '"franchiseeEmail": {"stringValue": "' + franchiseeEmail + '"},';
+      customerDetails +=
+        '"franchiseeMobile": {"stringValue": "' + franchiseeMobile + '"},';
+      customerDetails +=
         '"franchiseeTerritoryJSON": {"arrayValue": { "values": [';
       zeeSuburbMappingJSON.forEach(function (suburb) {
         var stringValue =
@@ -1778,7 +1909,20 @@ define([
         customerDetails = customerDetails.slice(0, -1);
       }
       customerDetails += "]}},";
-
+      if (!isNullorEmpty(accountManagerName)) {
+        customerDetails +=
+          '"accountManagerName": {"stringValue": "' +
+          accountManagerName +
+          '"},';
+        customerDetails +=
+          '"accountManagerEmail": {"stringValue": "' +
+          accountManagerEmail +
+          '"},';
+        customerDetails +=
+          '"accountManagerMobile": {"stringValue": "' +
+          accountManagerMobile +
+          '"},';
+      }
       customerDetails +=
         '"customerPhone": {"stringValue": "' + customerPhone + '"},';
       customerDetails +=
@@ -1803,6 +1947,12 @@ define([
         '"},';
       customerDetails +=
         '"servicePMPORate": {"stringValue": "' + localmilePMPORate + '"},';
+      customerDetails +=
+        '"serviceTrialInternalID": {"stringValue": "' +
+        localmileTrialInternalID +
+        '"},';
+      customerDetails +=
+        '"serviceTrialRate": {"stringValue": "' + localmileTrialRate + '"},';
       customerDetails += '"extraWeightCharges": {"stringValue": "3.50"},';
       customerDetails +=
         '"customer_id": {"stringValue": "' + internalid + '"},';
