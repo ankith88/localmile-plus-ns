@@ -1435,6 +1435,77 @@ define([
       var franchiseeInternalID = customerRecord.getValue({
         fieldId: "partner"
       });
+
+      //Load Site Address
+      //NetSuite Search: List - Site Addresses
+      var siteAddressesSearch = search.load({
+        id: "customsearch_cust_list_site_addresses_4",
+        type: "customer"
+      });
+
+      siteAddressesSearch.filters.push(
+        search.createFilter({
+          name: "internalid",
+          join: null,
+          operator: search.Operator.ANYOF,
+          values: internalid
+        })
+      );
+
+      var shippingAddress1 = null;
+      var shippingAddress2 = null;
+      var shippingCity = null;
+      var shippingStateProvince = null;
+      var shippingZip = null;
+      var shippingLat = null;
+      var shippingLon = null;
+      siteAddressesSearch.run().each(function (siteAddressesSearchResultSet) {
+        shippingAddress1 = siteAddressesSearchResultSet.getValue({
+          name: "address1",
+          join: "Address"
+        });
+        shippingAddress2 = siteAddressesSearchResultSet.getValue({
+          name: "address2",
+          join: "Address"
+        });
+        shippingCity = siteAddressesSearchResultSet.getValue({
+          name: "city",
+          join: "Address"
+        });
+        shippingStateProvince = siteAddressesSearchResultSet.getValue({
+          name: "state",
+          join: "Address"
+        });
+        shippingZip = siteAddressesSearchResultSet.getValue({
+          name: "zipcode",
+          join: "Address"
+        });
+
+        shippingLat = siteAddressesSearchResultSet.getValue({
+          name: "custrecord_address_lat",
+          join: "Address",
+          summary: "GROUP"
+        });
+        shippingLon = siteAddressesSearchResultSet.getValue({
+          name: "custrecord_address_lon",
+          join: "Address",
+          summary: "GROUP"
+        });
+      });
+
+      log.debug({
+        title: "Shipping Address Details",
+        details: {
+          shippingAddress1: shippingAddress1,
+          shippingAddress2: shippingAddress2,
+          shippingCity: shippingCity,
+          shippingStateProvince: shippingStateProvince,
+          shippingZip: shippingZip,
+          shippingLat: shippingLat,
+          shippingLon: shippingLon
+        }
+      });
+
       var partnerRecord = record.load({
         type: record.Type.PARTNER,
         id: pp_franchisee_id
@@ -1496,10 +1567,150 @@ define([
       var franchiseeTerritoryJSON = partnerRecord.getValue({
         fieldId: "custentity_zee_territory_json"
       });
+      var zeeLPOJSONString = partnerRecord.getValue({
+        fieldId: "custentity_ap_suburbs_json"
+      });
       var zeeSuburbMappingJSON = [];
       var zeeJSON = JSON.parse(franchiseeTerritoryJSON);
       zeeJSON.forEach(function (suburb) {
         zeeSuburbMappingJSON.push(suburb);
+      });
+
+      var matchedSuburbs = [];
+      var matchedPrimaryOps = [];
+      var matchedParentLpoIds = [];
+      if (!isNullorEmpty(zeeLPOJSONString)) {
+        //Check if there is LPO suburb mapping JSON for the franchisee
+        var zeeLPOJSON = JSON.parse(zeeLPOJSONString);
+        zeeLPOJSON.forEach(function (suburb) {
+          zeeSuburbMappingJSON.push(suburb);
+        });
+
+        var matchedSuburbRecords = getMatchingSuburbRecords(
+          zeeSuburbMappingJSON,
+          shippingCity,
+          shippingStateProvince,
+          shippingZip
+        );
+
+        log.debug({
+          title: "Matched suburb records from territory JSON",
+          details: matchedSuburbRecords
+        });
+
+        for (var m = 0; m < matchedSuburbRecords.length; m++) {
+          matchedSuburbs.push(matchedSuburbRecords[m].suburbs);
+          matchedPrimaryOps.push(matchedSuburbRecords[m].primary_op);
+          matchedParentLpoIds.push(matchedSuburbRecords[m].parent_lpo_id);
+        }
+
+        log.debug({
+          title: "Matched suburbs, primary ops, and parent LPO IDs",
+          details: {
+            matchedSuburbs: matchedSuburbs,
+            matchedPrimaryOps: matchedPrimaryOps,
+            matchedParentLpoIds: matchedParentLpoIds
+          }
+        });
+        //	{"matchedSuburbs":["BAULKHAM HILLS","BAULKHAM HILLS"],"matchedPrimaryOps":["916","916"],"matchedParentLpoIds":[null,"1938397"]}
+      }
+
+      var linkedLPOName = null;
+      var linkedLPOshippingAddress1 = null;
+      var linkedLPOshippingAddress2 = null;
+      var linkedLPOshippingCity = null;
+      var linkedLPOshippingStateProvince = null;
+      var linkedLPOshippingZip = null;
+      var linkedLPOshippingLat = null;
+      var linkedLPOshippingLon = null;
+      for (var i = 0; i < matchedParentLpoIds.length; i++) {
+        log.debug({
+          title: "Matched Parent LPO ID",
+          details: matchedParentLpoIds[i]
+        });
+        if (!isNullorEmpty(matchedParentLpoIds[i])) {
+          var linkedLPORecord = record.load({
+            type: "customer",
+            id: matchedParentLpoIds[i]
+          });
+
+          var linkedLPOName = linkedLPORecord.getValue({
+            fieldId: "companyname"
+          });
+
+          //remove - Parent from the suffix
+          var lpoNameArray = linkedLPOName.split(" - ");
+          linkedLPOName = lpoNameArray[0].trim();
+
+          //NetSuite Search: List - Site Addresses
+          var siteAddressesSearch = search.load({
+            id: "customsearch_cust_list_site_addresses_4",
+            type: "customer"
+          });
+
+          siteAddressesSearch.filters.push(
+            search.createFilter({
+              name: "internalid",
+              join: null,
+              operator: search.Operator.ANYOF,
+              values: matchedParentLpoIds[i]
+            })
+          );
+
+          siteAddressesSearch
+            .run()
+            .each(function (siteAddressesSearchResultSet) {
+              linkedLPOshippingAddress1 = siteAddressesSearchResultSet.getValue(
+                {
+                  name: "address1",
+                  join: "Address"
+                }
+              );
+              linkedLPOshippingAddress2 = siteAddressesSearchResultSet.getValue(
+                {
+                  name: "address2",
+                  join: "Address"
+                }
+              );
+              linkedLPOshippingCity = siteAddressesSearchResultSet.getValue({
+                name: "city",
+                join: "Address"
+              });
+              linkedLPOshippingStateProvince =
+                siteAddressesSearchResultSet.getValue({
+                  name: "state",
+                  join: "Address"
+                });
+              linkedLPOshippingZip = siteAddressesSearchResultSet.getValue({
+                name: "zipcode",
+                join: "Address"
+              });
+
+              linkedLPOshippingLat = siteAddressesSearchResultSet.getValue({
+                name: "custrecord_address_lat",
+                join: "Address",
+                summary: "GROUP"
+              });
+              linkedLPOshippingLon = siteAddressesSearchResultSet.getValue({
+                name: "custrecord_address_lon",
+                join: "Address",
+                summary: "GROUP"
+              });
+            });
+        }
+      }
+
+      log.debug({
+        title: "Linked LPO Shipping Address Details",
+        details: {
+          linkedLPOshippingAddress1: linkedLPOshippingAddress1,
+          linkedLPOshippingAddress2: linkedLPOshippingAddress2,
+          linkedLPOshippingCity: linkedLPOshippingCity,
+          linkedLPOshippingStateProvince: linkedLPOshippingStateProvince,
+          linkedLPOshippingZip: linkedLPOshippingZip,
+          linkedLPOshippingLat: linkedLPOshippingLat,
+          linkedLPOshippingLon: linkedLPOshippingLon
+        }
       });
 
       var customerPhone = customerRecord.getValue({
@@ -1979,6 +2190,38 @@ define([
         customerDetails +=
           '"apLongitude": {"stringValue": "' + apLongitude + '"},';
       }
+      if (!isNullorEmpty(linkedLPOshippingCity)) {
+        customerDetails +=
+          '"linkedLPOName": {"stringValue": "' + linkedLPOName + '"},';
+        customerDetails +=
+          '"linkedLPOshippingAddress1": {"stringValue": "' +
+          linkedLPOshippingAddress1 +
+          '"},';
+        customerDetails +=
+          '"linkedLPOshippingAddress2": {"stringValue": "' +
+          linkedLPOshippingAddress2 +
+          '"},';
+        customerDetails +=
+          '"linkedLPOshippingCity": {"stringValue": "' +
+          linkedLPOshippingCity +
+          '"},';
+        customerDetails +=
+          '"linkedLPOshippingStateProvince": {"stringValue": "' +
+          linkedLPOshippingStateProvince +
+          '"},';
+        customerDetails +=
+          '"linkedLPOshippingZip": {"stringValue": "' +
+          linkedLPOshippingZip +
+          '"},';
+        customerDetails +=
+          '"linkedLPOshippingLat": {"stringValue": "' +
+          linkedLPOshippingLat +
+          '"},';
+        customerDetails +=
+          '"linkedLPOshippingLon": {"stringValue": "' +
+          linkedLPOshippingLon +
+          '"},';
+      }
       //Remove the last character if it is a comma
       if (customerDetails.slice(-1) == ",") {
         customerDetails = customerDetails.slice(0, -1);
@@ -2148,6 +2391,53 @@ define([
     }
 
     return state_id;
+  }
+
+  function getMatchingSuburbRecords(territoryJSON, city, state, zip) {
+    var normalizedCity = normalizeSuburbField(city);
+    var normalizedState = normalizeSuburbField(state);
+    var normalizedZip = normalizeSuburbField(zip);
+    var matches = [];
+
+    if (isNullorEmpty(territoryJSON) || !territoryJSON.length) {
+      return matches;
+    }
+
+    for (var i = 0; i < territoryJSON.length; i++) {
+      var territory = territoryJSON[i];
+      if (isNullorEmpty(territory)) {
+        continue;
+      }
+
+      var territoryCity = normalizeSuburbField(territory.suburbs);
+      var territoryState = normalizeSuburbField(territory.state);
+      var territoryZip = normalizeSuburbField(territory.post_code);
+
+      if (
+        territoryCity == normalizedCity &&
+        territoryState == normalizedState &&
+        territoryZip == normalizedZip
+      ) {
+        matches.push({
+          suburbs: territory.suburbs,
+          primary_op: territory.primary_op,
+          parent_lpo_id: territory.parent_lpo_id,
+          source: territory
+        });
+      }
+    }
+
+    return matches;
+  }
+
+  function normalizeSuburbField(value) {
+    if (isNullorEmpty(value)) {
+      return "";
+    }
+
+    return String(value)
+      .replace(/^\s+|\s+$/g, "")
+      .toUpperCase();
   }
 
   return {

@@ -375,9 +375,17 @@ define([
           fieldId: "custentity_zee_territory_json"
         });
 
+        var zeeLPOJSONString = partnerRecord.getValue({
+          fieldId: "custentity_ap_suburbs_json"
+        });
+
         log.debug({
           title: "zeeJSONString",
           details: zeeJSONString
+        });
+        log.debug({
+          title: "zeeLPOJSONString",
+          details: zeeLPOJSONString
         });
 
         var zeeJSON = JSON.parse(zeeJSONString);
@@ -399,6 +407,30 @@ define([
             }
           }
         });
+        activeOperator = removeDuplicates(activeOperator);
+
+        if (!isNullorEmpty(zeeLPOJSONString)) {
+          var zeeLPOJSON = JSON.parse(zeeLPOJSONString);
+          zeeLPOJSON.forEach(function (suburb) {
+            lpoSuburbMappingJSON.push(suburb);
+            if (
+              suburb.suburbs.toUpperCase() == shippingCity.toUpperCase() &&
+              suburb.post_code == shippingZip &&
+              suburb.state.toUpperCase() == shippingStateProvince.toUpperCase()
+            ) {
+              if (!isNullorEmpty(suburb.primary_op)) {
+                if (Array.isArray(suburb.primary_op)) {
+                  for (var i = 0; i < suburb.primary_op.length; i++) {
+                    activeOperator.push(suburb.primary_op[i]);
+                  }
+                } else {
+                  activeOperator.push(suburb.primary_op);
+                }
+              }
+            }
+          });
+        }
+
         activeOperator = removeDuplicates(activeOperator);
 
         log.debug({
