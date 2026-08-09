@@ -523,14 +523,14 @@ define([
             var apiHeaders = {};
             apiHeaders["Content-Type"] = "application/json";
 
-            var response = https.request({
-              method: https.Method.POST,
-              url: firebaseUpdateURL,
-              body: JSON.stringify(sendOutEmailJSON),
-              headers: apiHeaders
-            });
-            var myresponse_body = response.body;
-            var myresponse_code = response.code;
+            // var response = https.request({
+            //   method: https.Method.POST,
+            //   url: firebaseUpdateURL,
+            //   body: JSON.stringify(sendOutEmailJSON),
+            //   headers: apiHeaders
+            // });
+            // var myresponse_body = response.body;
+            // var myresponse_code = response.code;
           }
         }
 
@@ -698,24 +698,24 @@ define([
             var apiHeaders = {};
             apiHeaders["Content-Type"] = "application/json";
 
-            var response = https.request({
-              method: https.Method.POST,
-              url: firebaseUpdateURL,
-              body: JSON.stringify(sendOutEmailJSON),
-              headers: apiHeaders
-            });
-            var myresponse_body = response.body;
-            var myresponse_code = response.code;
+            // var response = https.request({
+            //   method: https.Method.POST,
+            //   url: firebaseUpdateURL,
+            //   body: JSON.stringify(sendOutEmailJSON),
+            //   headers: apiHeaders
+            // });
+            // var myresponse_body = response.body;
+            // var myresponse_code = response.code;
 
-            log.debug({
-              title: "myresponse_body",
-              details: myresponse_body
-            });
+            // log.debug({
+            //   title: "myresponse_body",
+            //   details: myresponse_body
+            // });
 
-            log.debug({
-              title: "myresponse_code",
-              details: myresponse_code
-            });
+            // log.debug({
+            //   title: "myresponse_code",
+            //   details: myresponse_code
+            // });
 
             //Send Email to End Customer when stop 2 has been completed by the operator for the day.
             if (!isNullorEmpty(leadCompanyEmail)) {
@@ -782,14 +782,14 @@ define([
               var apiHeaders = {};
               apiHeaders["Content-Type"] = "application/json";
 
-              var response = https.request({
-                method: https.Method.POST,
-                url: firebaseUpdateURL,
-                body: JSON.stringify(sendOutEmailJSON),
-                headers: apiHeaders
-              });
-              var myresponse_body = response.body;
-              var myresponse_code = response.code;
+              // var response = https.request({
+              //   method: https.Method.POST,
+              //   url: firebaseUpdateURL,
+              //   body: JSON.stringify(sendOutEmailJSON),
+              //   headers: apiHeaders
+              // });
+              // var myresponse_body = response.body;
+              // var myresponse_code = response.code;
             }
           }
         }

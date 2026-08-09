@@ -329,6 +329,11 @@ define([
             resultSetAddresses.getValue({
               name: "custrecord_address_lon",
               join: "Address"
+            }) || "",
+          partnerLocation:
+            resultSetAddresses.getText({
+              name: "custrecord_address_ncl",
+              join: "Address"
             }) || ""
         });
         return true;
@@ -344,7 +349,8 @@ define([
               state: "",
               zip: "",
               latitude: "",
-              longitude: ""
+              longitude: "",
+              partnerLocation: ""
             };
 
       var subCustomerBillingAddress1 = primaryBillingAddress.address1;
@@ -354,6 +360,8 @@ define([
       var subCustomerBillingPostcode = primaryBillingAddress.zip;
       var subCustomerBillingLatitude = primaryBillingAddress.latitude;
       var subCustomerBillingLongitude = primaryBillingAddress.longitude;
+      var subCustomerBillingPartnerLocation =
+        primaryBillingAddress.partnerLocation;
 
       //Get the Address of the IM
       //NetSuite Search: Customer List - Site Addresses
@@ -731,6 +739,11 @@ define([
               longitude: {
                 stringValue: String(
                   subCustomerBillingAddresses[ba].longitude || ""
+                )
+              },
+              partnerLocation: {
+                stringValue: String(
+                  subCustomerBillingAddresses[ba].partnerLocation || ""
                 )
               }
             }

@@ -153,6 +153,11 @@ define([
     var localmilePlusGetJobsURL =
       "https://localmile.plus/api/v1/jobs?date=" + todayDateYYYYMMDD;
 
+    log.debug({
+      title: "Localmile Plus Get Jobs URL",
+      details: localmilePlusGetJobsURL
+    });
+
     var response = https.request({
       method: https.Method.GET,
       url: localmilePlusGetJobsURL,
@@ -199,6 +204,12 @@ define([
 
         var service = parsed.data[i].service;
         var customerInternalId = parsed.data[i].netsuiteCustomerId;
+        if (!isNullorEmpty(parsed.data[i].parent_id)) {
+          var parentInternalId = parsed.data[i].data.parent_id;
+        } else {
+          var parentInternalId = null;
+        }
+
         if (!isNullorEmpty(parsed.data[i].jobAcceptedCustInternalId)) {
           customerInternalId = parsed.data[i].jobAcceptedCustInternalId;
         }
@@ -236,9 +247,9 @@ define([
         });
 
         //Load Site Address
-        //NetSuite Search: Customer List - Site Addresses
+        //NetSuite Search: List - Site Addresses
         var siteAddressesSearch = search.load({
-          id: "customsearch_cust_list_site_addresses",
+          id: "customsearch_cust_list_site_addresses_4",
           type: "customer"
         });
 
@@ -336,6 +347,9 @@ define([
         var zeeLPOJSONString = partnerRecord.getValue({
           fieldId: "custentity_ap_suburbs_json"
         });
+        var zeeIronMountainJSONString = partnerRecord.getValue({
+          fieldId: "custentity_ironmountain_suburbs_json"
+        });
 
         log.debug({
           title: "zeeJSONString",
@@ -345,31 +359,58 @@ define([
           title: "zeeLPOJSONString",
           details: zeeLPOJSONString
         });
+        log.debug({
+          title: "zeeIronMountainJSONString",
+          details: zeeIronMountainJSONString
+        });
 
-        var zeeJSON = JSON.parse(zeeJSONString);
-        zeeJSON.forEach(function (suburb) {
-          lpoSuburbMappingJSON.push(suburb);
-          if (
-            suburb.suburbs.toUpperCase() == shippingCity.toUpperCase() &&
-            suburb.post_code == shippingZip &&
-            suburb.state.toUpperCase() == shippingStateProvince.toUpperCase()
-          ) {
-            if (!isNullorEmpty(suburb.primary_op)) {
-              if (Array.isArray(suburb.primary_op)) {
-                for (var i = 0; i < suburb.primary_op.length; i++) {
-                  activeOperator.push(suburb.primary_op[i]);
+        if (
+          !isNullorEmpty(zeeIronMountainJSONString) &&
+          !isNullorEmpty(parentInternalId)
+        ) {
+          var zeeIronMountainJSON = JSON.parse(zeeIronMountainJSONString);
+          zeeIronMountainJSON.forEach(function (suburb) {
+            lpoSuburbMappingJSON.push(suburb);
+            var normalizedSuburbStreetName = normalizeStreetComparisonValue(
+              suburb.street_name
+            );
+            var normalizedShippingAddress2 =
+              normalizeStreetComparisonValue(shippingAddress2);
+            var normalizedShippingAddress2WithoutStreetNo =
+              normalizeStreetComparisonValue(
+                removeLeadingStreetNumber(shippingAddress2)
+              );
+
+            var isStreetMatch = false;
+            if (hasLeadingStreetNumber(suburb.street_name)) {
+              isStreetMatch =
+                normalizedSuburbStreetName == normalizedShippingAddress2;
+            } else {
+              isStreetMatch =
+                normalizedSuburbStreetName ==
+                normalizedShippingAddress2WithoutStreetNo;
+            }
+
+            if (
+              isStreetMatch &&
+              suburb.suburbs.toUpperCase() == shippingCity.toUpperCase() &&
+              suburb.post_code == shippingZip &&
+              suburb.state.toUpperCase() == shippingStateProvince.toUpperCase()
+            ) {
+              if (!isNullorEmpty(suburb.primary_op)) {
+                if (Array.isArray(suburb.primary_op)) {
+                  for (var i = 0; i < suburb.primary_op.length; i++) {
+                    activeOperator.push(suburb.primary_op[i]);
+                  }
+                } else {
+                  activeOperator.push(suburb.primary_op);
                 }
-              } else {
-                activeOperator.push(suburb.primary_op);
               }
             }
-          }
-        });
-        activeOperator = removeDuplicates(activeOperator);
-
-        if (!isNullorEmpty(zeeLPOJSONString)) {
-          var zeeLPOJSON = JSON.parse(zeeLPOJSONString);
-          zeeLPOJSON.forEach(function (suburb) {
+          });
+        } else {
+          var zeeJSON = JSON.parse(zeeJSONString);
+          zeeJSON.forEach(function (suburb) {
             lpoSuburbMappingJSON.push(suburb);
             if (
               suburb.suburbs.toUpperCase() == shippingCity.toUpperCase() &&
@@ -387,6 +428,30 @@ define([
               }
             }
           });
+          activeOperator = removeDuplicates(activeOperator);
+
+          if (!isNullorEmpty(zeeLPOJSONString)) {
+            var zeeLPOJSON = JSON.parse(zeeLPOJSONString);
+            zeeLPOJSON.forEach(function (suburb) {
+              lpoSuburbMappingJSON.push(suburb);
+              if (
+                suburb.suburbs.toUpperCase() == shippingCity.toUpperCase() &&
+                suburb.post_code == shippingZip &&
+                suburb.state.toUpperCase() ==
+                  shippingStateProvince.toUpperCase()
+              ) {
+                if (!isNullorEmpty(suburb.primary_op)) {
+                  if (Array.isArray(suburb.primary_op)) {
+                    for (var i = 0; i < suburb.primary_op.length; i++) {
+                      activeOperator.push(suburb.primary_op[i]);
+                    }
+                  } else {
+                    activeOperator.push(suburb.primary_op);
+                  }
+                }
+              }
+            });
+          }
         }
 
         activeOperator = removeDuplicates(activeOperator);
@@ -657,6 +722,219 @@ define([
           });
           var serviceInternalId = parsed.data[i].serviceAMPOInternalID;
           var billing = parsed.data[i].serviceAMPORate;
+
+          //AMPO
+          // Create App Job Group
+          var appJobGroupID = createAppJobGroup(
+            "AMPO",
+            customerInternalId,
+            companyLinkedZee,
+            serviceInternalId,
+            dateDDMMYYYY,
+            netsuiteLPOServiceDateDateFormat,
+            job_id
+          );
+
+          log.debug({
+            title: "App Job Group ID",
+            details: appJobGroupID
+          });
+
+          var appJobGroupRecord = record.load({
+            type: "customrecord_jobgroup",
+            id: appJobGroupID
+          });
+
+          var app_job_group_name = appJobGroupRecord.getValue({
+            fieldId: "name"
+          });
+
+          var stopNameForPickup = "PICKUP - " + auspostCompany.toUpperCase();
+
+          //Create App Jobs for LPO PickUp
+          var app_job_id_1 = createAppJobs(
+            customerInternalId,
+            auspostCompany.toUpperCase(),
+            serviceInternalId,
+            currentTime,
+            appJobGroupID,
+            auspostAddress,
+            auspostSuburb,
+            auspostState,
+            auspostPostcode,
+            auspostLat,
+            auspostLng,
+            companyLinkedZee,
+            instructions,
+            null,
+            3,
+            "adhoc",
+            siteCompanyName,
+            app_job_group_name,
+            netsuiteLPOServiceDateDateFormat,
+            dateDDMMYYYY,
+            1,
+            auspostFirstName + " " + auspostLastName,
+            "",
+            auspostEmail,
+            null,
+            jobDate,
+            stopNameForPickup,
+            activeOperator,
+            2,
+            is_free_job
+          );
+
+          log.debug({
+            title: "Pickup Job ID",
+            details: app_job_id_1
+          });
+
+          var stopNameForDelivery =
+            "DELIVERY - " + siteCompanyName.toUpperCase();
+          //Create App Jobs for Site Delivery
+          var app_job_id_2 = createAppJobs(
+            customerInternalId,
+            siteCompanyName.toUpperCase(),
+            serviceInternalId,
+            currentTime,
+            appJobGroupID,
+            shippingAddress1 + " " + shippingAddress2,
+            shippingCity,
+            shippingStateProvince,
+            shippingZip,
+            shippingLat,
+            shippingLon,
+            companyLinkedZee,
+            instructions,
+            null,
+            null,
+            "adhoc",
+            siteCompanyName,
+            app_job_group_name,
+            netsuiteLPOServiceDateDateFormat,
+            dateDDMMYYYY,
+            2,
+            customerContactName,
+            "",
+            customerContactEmail,
+            customerContactPhone,
+            jobDate,
+            stopNameForDelivery,
+            activeOperator,
+            2,
+            is_free_job
+          );
+          log.debug({
+            title: "Delivery Job ID",
+            details: app_job_id_2
+          });
+
+          var updateJobCollectionJSON = {
+            fields: {
+              appJobGroupId: {
+                stringValue: "" + appJobGroupID + ""
+              },
+              syncedWithNetSuite: {
+                booleanValue: true
+              },
+              stops: {
+                arrayValue: {
+                  values: [
+                    {
+                      mapValue: {
+                        fields: {
+                          type: { stringValue: "pickup" },
+                          label: { stringValue: "Pickup LPO" },
+                          locationName: {
+                            stringValue: "" + auspostCompany + ""
+                          },
+                          address: {
+                            stringValue: auspostAddress
+                          },
+                          suburb: { stringValue: "" + auspostSuburb + "" },
+                          state: {
+                            stringValue: "" + auspostState + ""
+                          },
+                          postcode: { stringValue: "" + auspostPostcode + "" },
+                          sequence: { integerValue: "1" },
+                          status: { stringValue: "pending" },
+                          appJobId: { stringValue: "" + app_job_id_1 + "" },
+                          lat: { stringValue: "" + auspostLat + "" },
+                          lng: { stringValue: "" + auspostLng + "" }
+                        }
+                      }
+                    },
+                    {
+                      mapValue: {
+                        fields: {
+                          type: { stringValue: "delivery" },
+                          label: { stringValue: "Delivery Site" },
+                          locationName: {
+                            stringValue: "" + siteCompanyName + ""
+                          },
+                          address: {
+                            stringValue:
+                              "" +
+                              shippingAddress1 +
+                              " " +
+                              shippingAddress2 +
+                              ""
+                          },
+                          suburb: { stringValue: "" + shippingCity + "" },
+                          state: {
+                            stringValue: "" + shippingStateProvince + ""
+                          },
+                          postcode: { stringValue: "" + shippingZip + "" },
+                          sequence: { integerValue: "2" },
+                          status: { stringValue: "pending" },
+                          appJobId: { stringValue: "" + app_job_id_2 + "" },
+                          lat: { stringValue: "" + shippingLat + "" },
+                          lng: { stringValue: "" + shippingLon + "" }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          };
+
+          var firebaseUpdateURL =
+            "https://firestore.googleapis.com/v1/projects/localmile-plus/databases/(default)/documents/jobs/" +
+            job_id +
+            "?updateMask.fieldPaths=stops&updateMask.fieldPaths=appJobGroupId";
+          var apiHeaders = {};
+          apiHeaders["Content-Type"] = "application/json";
+          apiHeaders["Accept"] = "*/*";
+          apiHeaders["X-HTTP-Method-Override"] = "PATCH";
+
+          var response = https.request({
+            method: https.Method.POST,
+            url: firebaseUpdateURL,
+            body: JSON.stringify(updateJobCollectionJSON),
+            headers: apiHeaders
+          });
+
+          var myresponse_body = response.body;
+          var myresponse_code = response.code;
+
+          log.debug({
+            title: "myresponse_body",
+            details: myresponse_body
+          });
+
+          log.debug({
+            title: "myresponse_code",
+            details: myresponse_code
+          });
+        } else if (serviceType == "AMPO") {
+          log.debug({
+            title: "Creating Job for Service Type",
+            details: serviceType
+          });
+          var serviceInternalId = parsed.data[i].serviceInternalId;
+          var billing = parsed.data[i].serviceRate;
 
           //AMPO
           // Create App Job Group
@@ -1281,15 +1559,21 @@ define([
     apiBody += '"location_type": "' + app_job_location_type_name + '",';
     apiBody += '"note": "' + appServiceStopNotes + '",';
 
-    apiBody += '"operator_ns_ids": [';
-    for (var x = 0; x < lpoLinkedZeesOperatorsArray.length; x++) {
-      apiBody += '"' + lpoLinkedZeesOperatorsArray[x].toString() + '"';
-      if (x < lpoLinkedZeesOperatorsArray.length - 1) {
-        apiBody += ",";
+    if (lpoLinkedZeesOperatorsArray.length > 0) {
+      if (lpoLinkedZeesOperatorsArray.length == 1) {
+        apiBody += '"broadcast": "false",';
+      } else {
+        apiBody += '"broadcast": "true",';
       }
+      apiBody += '"operator_ns_ids": [';
+      for (var x = 0; x < lpoLinkedZeesOperatorsArray.length; x++) {
+        apiBody += '"' + lpoLinkedZeesOperatorsArray[x].toString() + '"';
+        if (x < lpoLinkedZeesOperatorsArray.length - 1) {
+          apiBody += ",";
+        }
+      }
+      apiBody += "],";
     }
-
-    apiBody += "],";
 
     apiBody += '"stop_name": "' + stopNamePreCreated + '",';
     apiBody += '"service_leg": "' + serviceLeg + '",';
