@@ -931,7 +931,7 @@ define([
                   });
                   userNoteRecord.setValue({
                     fieldId: "author",
-                    value: 1874329
+                    value: 1952193
                   });
 
                   userNoteRecord.setValue({
@@ -1076,7 +1076,7 @@ define([
 
                     phoneCallRecord.setValue({
                       fieldId: "custevent_organiser",
-                      value: 1874329
+                      value: 1952193
                     });
 
                     phoneCallRecord.setValue({
@@ -1093,7 +1093,7 @@ define([
 
                     phoneCallRecord.setValue({
                       fieldId: "assigned",
-                      value: 1874329
+                      value: 1952193
                     });
 
                     phoneCallRecord.setValue({
@@ -1139,7 +1139,7 @@ define([
                     });
                     userNoteRecord.setValue({
                       fieldId: "author",
-                      value: 1874329
+                      value: 1952193
                     });
 
                     userNoteRecord.setValue({
@@ -1257,7 +1257,7 @@ define([
                     });
                     userNoteRecord.setValue({
                       fieldId: "author",
-                      value: 1874329
+                      value: 1952193
                     });
 
                     userNoteRecord.setValue({
@@ -1351,7 +1351,7 @@ define([
 
                   userNoteRecord.setValue({
                     fieldId: "author",
-                    value: 1874329
+                    value: 1952193
                   });
 
                   userNoteRecord.setValue({

@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Update on Your Job Request</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        width: 100% !important;
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+      }
+      img {
+        border: 0;
+        outline: none;
+        text-decoration: none;
+        -ms-interpolation-mode: bicubic;
+      }
+      @media screen and (max-width: 600px) {
+        .email-container {
+          width: 100% !important;
+          max-width: 100% !important;
+          border-radius: 8px !important;
+        }
+        .content-cell {
+          padding: 30px 20px !important;
+        }
+      }
+    </style>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      width: 100% !important;
+      background-color: #f4f7f8;
+      font-family:
+        &quot;Inter&quot;,
+        system-ui,
+        -apple-system,
+        sans-serif;
+    "
+  >
+    <table
+      border="0"
+      cellpadding="0"
+      cellspacing="0"
+      width="100%"
+      style="background-color: #f4f7f8; padding: 20px 0; width: 100%"
+    >
+      <tr>
+        <td align="center">
+          <table
+            class="email-container"
+            align="center"
+            border="0"
+            cellpadding="0"
+            cellspacing="0"
+            width="600"
+            style="
+              max-width: 600px;
+              width: 100%;
+              margin: 0 auto;
+              background-color: #ffffff;
+              border-radius: 12px;
+              overflow: hidden;
+              border: 1px solid #e2e8f0;
+              box-shadow: 0 4px 24px rgba(9, 92, 123, 0.06);
+            "
+          >
+            <tr>
+              <td
+                class="content-cell"
+                style="
+                  padding: 45px 35px;
+                  color: #2d3748;
+                  font-size: 15px;
+                  line-height: 1.6;
+                  font-family:
+                    &quot;Inter&quot;,
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                "
+              >
+                <div
+                  class="greeting"
+                  style="
+                    font-size: 20px;
+                    color: #095c7b;
+                    font-weight: 700;
+                    margin-bottom: 16px;
+                    letter-spacing: -0.5px;
+                    font-family:
+                      &quot;Inter&quot;,
+                      system-ui,
+                      -apple-system,
+                      sans-serif;
+                  "
+                >
+                  Hi ${request.customer?.firstName || 'Customer'},
+                </div>
+
+                <p
+                  style="
+                    margin: 0 0 16px;
+                    font-size: 15px;
+                    color: #2d3748;
+                    font-family:
+                      &quot;Inter&quot;,
+                      system-ui,
+                      -apple-system,
+                      sans-serif;
+                    line-height: 1.6;
+                  "
+                >
+                  Your job request for
+                  <strong>${request.service || 'Logistics Service'}</strong> on
+                  <strong>${request.date}</strong> (Ref:
+                  <strong>#${refId}</strong>) has been declined by the assigned
+                  operator.
+                </p>
+
+                <div
+                  style="
+                    background: #fcf8f2;
+                    border-left: 4px solid #f59e0b;
+                    border-radius: 6px;
+                    padding: 16px 20px;
+                    margin: 20px 0;
+                  "
+                >
+                  <p
+                    style="
+                      margin: 0;
+                      font-weight: 700;
+                      color: #92400e;
+                      font-size: 14px;
+                    "
+                  >
+                    Reason for Decline:
+                  </p>
+                  <p
+                    style="margin: 4px 0 0 0; color: #451a03; font-weight: 600"
+                  >
+                    ${rejectReason}
+                  </p>
+                  ${rejectNotes ? `
+                  <p
+                    style="
+                      margin: 8px 0 0 0;
+                      font-style: italic;
+                      color: #78350f;
+                      font-size: 14px;
+                    "
+                  >
+                    "${rejectNotes.trim()}"
+                  </p>
+                  ` : ''}
+                </div>
+
+                <p
+                  style="
+                    margin: 0 0 20px;
+                    font-size: 15px;
+                    color: #2d3748;
+                    font-family:
+                      &quot;Inter&quot;,
+                      system-ui,
+                      -apple-system,
+                      sans-serif;
+                    line-height: 1.6;
+                  "
+                >
+                  If you need assistance or would like to discuss alternative
+                  scheduling options, please reply directly to this email or
+                  contact our support team at
+                  <a
+                    href="mailto:dispatcher@mailplus.com.au"
+                    style="
+                      color: #095c7b;
+                      text-decoration: underline;
+                      font-weight: 600;
+                    "
+                    >dispatcher@mailplus.com.au</a
+                  >.
+                </p>
+
+                <p
+                  style="
+                    margin: 0 0 6px;
+                    font-size: 15px;
+                    color: #2d3748;
+                    font-family:
+                      &quot;Inter&quot;,
+                      system-ui,
+                      -apple-system,
+                      sans-serif;
+                    line-height: 1.6;
+                  "
+                >
+                  Kind regards,
+                </p>
+                <p
+                  style="
+                    margin: 0;
+                    font-size: 15px;
+                    color: #2d3748;
+                    font-family:
+                      &quot;Inter&quot;,
+                      system-ui,
+                      -apple-system,
+                      sans-serif;
+                    line-height: 1.6;
+                  "
+                >
+                  <strong style="font-weight: 700; color: #2d3748"
+                    >MailPlus Customer Service Team</strong
+                  >
+                </p>
+              </td>
+            </tr>
+
+            <!-- Navy Banner containing MailPlus Brand Logo Image -->
+            <tr>
+              <td
+                align="center"
+                style="
+                  background-color: #095c7b;
+                  padding: 25px 20px;
+                  text-align: center;
+                "
+              >
+                <img
+                  src="https://lh3.googleusercontent.com/d/1hhLMkl8NmyhkhDT9jDg9AYIhbIRsjQQD"
+                  alt="MailPlus Logo"
+                  width="135"
+                  style="
+                    display: inline-block;
+                    vertical-align: middle;
+                    border: 0;
+                    outline: none;
+                    text-decoration: none;
+                    max-height: 42px;
+                    width: auto;
+                  "
+                />
+              </td>
+            </tr>
+
+            <!-- Legal and Brand Footer -->
+            <tr>
+              <td
+                align="center"
+                style="
+                  background-color: #f8fafb;
+                  padding: 30px 20px;
+                  text-align: center;
+                  border-top: 1px solid #edf2f7;
+                  font-size: 12px;
+                  color: #718096;
+                  font-family:
+                    &quot;Inter&quot;,
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                  line-height: 1.5;
+                "
+              >
+                <p
+                  style="
+                    margin: 0 0 6px;
+                    font-size: 12px;
+                    font-family:
+                      &quot;Inter&quot;,
+                      system-ui,
+                      -apple-system,
+                      sans-serif;
+                  "
+                >
+                  <strong style="font-weight: 700; color: #4a5568"
+                    >MailPlus</strong
+                  >
+                  | Business logistics, made simple.
+                </p>
+                <p
+                  style="
+                    margin: 0 0 15px;
+                    font-size: 12px;
+                    font-family:
+                      &quot;Inter&quot;,
+                      system-ui,
+                      -apple-system,
+                      sans-serif;
+                  "
+                >
+                  Powered by MailPlus Australia
+                </p>
+                <p
+                  style="
+                    margin: 0;
+                    font-size: 11px;
+                    color: #a0aec0;
+                    font-family:
+                      &quot;Inter&quot;,
+                      system-ui,
+                      -apple-system,
+                      sans-serif;
+                    line-height: 1.5;
+                  "
+                >
+                  &copy; 2026 MailPlus. All rights reserved.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

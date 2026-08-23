@@ -202,10 +202,21 @@ define([
         var request_id = parsed.data[i].originalRequestId;
         var jobType = parsed.data[i].jobType;
 
+        if (!isNullorEmpty(parsed.data[i].pickupInstructions)) {
+          var pickupInstructions = parsed.data[i].pickupInstructions;
+        } else {
+          var pickupInstructions = null;
+        }
+
+        log.debug({
+          title: "Job Type from URL",
+          details: jobType
+        });
+
         var service = parsed.data[i].service;
         var customerInternalId = parsed.data[i].netsuiteCustomerId;
         if (!isNullorEmpty(parsed.data[i].parent_id)) {
-          var parentInternalId = parsed.data[i].data.parent_id;
+          var parentInternalId = parsed.data[i].parent_id;
         } else {
           var parentInternalId = null;
         }
@@ -317,6 +328,95 @@ define([
             shippingZip
         });
 
+        if (!isNullorEmpty(parentInternalId)) {
+          //Load Parent Customer Record.
+          var parentCustomerRecord = record.load({
+            type: "customer",
+            id: parentInternalId
+          });
+
+          var parentSiteCompanyName = parentCustomerRecord.getValue({
+            fieldId: "companyname"
+          });
+          var parentCompanyLinkedZee = parentCustomerRecord.getValue({
+            fieldId: "partner"
+          });
+
+          //Load Site Address
+          //NetSuite Search: List - Site Addresses
+          var siteAddressesSearch = search.load({
+            id: "customsearch_cust_list_site_addresses_4",
+            type: "customer"
+          });
+
+          siteAddressesSearch.filters.push(
+            search.createFilter({
+              name: "internalid",
+              join: null,
+              operator: search.Operator.ANYOF,
+              values: parentInternalId
+            })
+          );
+
+          var parentShippingAddress1 = null;
+          var parentShippingAddress2 = null;
+          var parentShippingCity = null;
+          var parentShippingStateProvince = null;
+          var parentShippingZip = null;
+          var parentShippingLat = null;
+          var parentShippingLon = null;
+          siteAddressesSearch
+            .run()
+            .each(function (siteAddressesSearchResultSet) {
+              parentShippingAddress1 = siteAddressesSearchResultSet.getValue({
+                name: "address1",
+                join: "Address"
+              });
+              parentShippingAddress2 = siteAddressesSearchResultSet.getValue({
+                name: "address2",
+                join: "Address"
+              });
+              parentShippingCity = siteAddressesSearchResultSet.getValue({
+                name: "city",
+                join: "Address"
+              });
+              parentShippingStateProvince =
+                siteAddressesSearchResultSet.getValue({
+                  name: "state",
+                  join: "Address"
+                });
+              parentShippingZip = siteAddressesSearchResultSet.getValue({
+                name: "zipcode",
+                join: "Address"
+              });
+
+              parentShippingLat = siteAddressesSearchResultSet.getValue({
+                name: "custrecord_address_lat",
+                join: "Address",
+                summary: "GROUP"
+              });
+              parentShippingLon = siteAddressesSearchResultSet.getValue({
+                name: "custrecord_address_lon",
+                join: "Address",
+                summary: "GROUP"
+              });
+            });
+
+          log.debug({
+            title: "Shipping Address",
+            details:
+              parentShippingAddress1 +
+              " " +
+              parentShippingAddress2 +
+              ", " +
+              parentShippingCity +
+              ", " +
+              parentShippingStateProvince +
+              " " +
+              parentShippingZip
+          });
+        }
+
         var serviceType = parsed.data[i].service;
 
         if (!isNullorEmpty(parsed.data[i].preferredTime)) {
@@ -369,44 +469,76 @@ define([
           !isNullorEmpty(parentInternalId)
         ) {
           var zeeIronMountainJSON = JSON.parse(zeeIronMountainJSONString);
-          zeeIronMountainJSON.forEach(function (suburb) {
-            lpoSuburbMappingJSON.push(suburb);
-            var normalizedSuburbStreetName = normalizeStreetComparisonValue(
-              suburb.street_name
+          var normalizedShippingAddress2 = normalizeStreetComparisonValue(
+            removeLeadingAddressDescriptor(shippingAddress2)
+          );
+          var normalizedShippingAddress2WithoutStreetNo =
+            normalizeStreetComparisonValue(
+              removeLeadingStreetNumber(
+                removeLeadingAddressDescriptor(shippingAddress2)
+              )
             );
-            var normalizedShippingAddress2 =
-              normalizeStreetComparisonValue(shippingAddress2);
-            var normalizedShippingAddress2WithoutStreetNo =
-              normalizeStreetComparisonValue(
-                removeLeadingStreetNumber(shippingAddress2)
-              );
 
-            var isStreetMatch = false;
-            if (hasLeadingStreetNumber(suburb.street_name)) {
-              isStreetMatch =
-                normalizedSuburbStreetName == normalizedShippingAddress2;
-            } else {
-              isStreetMatch =
-                normalizedSuburbStreetName ==
-                normalizedShippingAddress2WithoutStreetNo;
-            }
-
-            if (
-              isStreetMatch &&
+          function isSameShippingArea(suburb) {
+            return (
               suburb.suburbs.toUpperCase() == shippingCity.toUpperCase() &&
               suburb.post_code == shippingZip &&
               suburb.state.toUpperCase() == shippingStateProvince.toUpperCase()
-            ) {
-              if (!isNullorEmpty(suburb.primary_op)) {
-                if (Array.isArray(suburb.primary_op)) {
-                  for (var i = 0; i < suburb.primary_op.length; i++) {
-                    activeOperator.push(suburb.primary_op[i]);
-                  }
-                } else {
-                  activeOperator.push(suburb.primary_op);
+            );
+          }
+
+          function addSuburbOperators(suburb) {
+            if (!isNullorEmpty(suburb.primary_op)) {
+              if (Array.isArray(suburb.primary_op)) {
+                for (var i = 0; i < suburb.primary_op.length; i++) {
+                  activeOperator.push(suburb.primary_op[i]);
                 }
+              } else {
+                activeOperator.push(suburb.primary_op);
               }
             }
+          }
+
+          var hasBuildingMatch = false;
+          zeeIronMountainJSON.forEach(function (suburb) {
+            lpoSuburbMappingJSON.push(suburb);
+            if (
+              hasLeadingStreetNumber(suburb.street_name) &&
+              normalizeStreetComparisonValue(suburb.street_name) ==
+                normalizedShippingAddress2 &&
+              isSameShippingArea(suburb)
+            ) {
+              hasBuildingMatch = true;
+              addSuburbOperators(suburb);
+            }
+          });
+
+          var hasStreetMatch = false;
+          if (!hasBuildingMatch) {
+            zeeIronMountainJSON.forEach(function (suburb) {
+              if (
+                !hasLeadingStreetNumber(suburb.street_name) &&
+                normalizeStreetComparisonValue(suburb.street_name) ==
+                  normalizedShippingAddress2WithoutStreetNo &&
+                isSameShippingArea(suburb)
+              ) {
+                hasStreetMatch = true;
+                addSuburbOperators(suburb);
+              }
+            });
+          }
+
+          if (!hasBuildingMatch && !hasStreetMatch) {
+            zeeIronMountainJSON.forEach(function (suburb) {
+              if (isSameShippingArea(suburb)) {
+                addSuburbOperators(suburb);
+              }
+            });
+          }
+
+          log.debug({
+            title: "activeOperator",
+            details: activeOperator
           });
         } else {
           var zeeJSON = JSON.parse(zeeJSONString);
@@ -461,47 +593,64 @@ define([
           details: activeOperator
         });
 
-        //Australia Post Contact Details
-        var auspostFirstName = parsed.data[i].auspostContact.firstName;
-        var auspostLastName = parsed.data[i].auspostContact.lastName;
-        var auspostPhone = parsed.data[i].auspostContact.phone;
-        var auspostEmail = parsed.data[i].auspostContact.email;
-        var auspostCompany = parsed.data[i].recipient.company;
+        if (!isNullorEmpty(parentInternalId)) {
+          if (serviceType.indexOf("AMPO") !== -1) {
+            if (!isNullorEmpty(parsed.data[i].stops)) {
+              if (!isNullorEmpty(parsed.data[i].stops[0])) {
+                auspostCompany = parsed.data[i].stops[0].locationName;
 
-        //Australia Post Address Details
-        var auspostAddress = parsed.data[i].recipient.address;
-        var auspostState = parsed.data[i].recipient.state;
-        var auspostSuburb = parsed.data[i].recipient.suburb;
-        var auspostPostcode = parsed.data[i].recipient.postcode;
-        var auspostLat = parsed.data[i].recipient.coordinates.lat;
-        var auspostLng = parsed.data[i].recipient.coordinates.lng;
+                auspostAddress = parsed.data[i].stops[0].address;
+                auspostState = parsed.data[i].stops[0].state;
+                auspostSuburb = parsed.data[i].stops[0].suburb;
+                auspostPostcode = parsed.data[i].stops[0].postcode;
+                auspostLat = parsed.data[i].stops[0].lat;
+                auspostLng = parsed.data[i].stops[0].lng;
+              }
+            }
+          }
+        } else {
+          //Australia Post Contact Details
+          var auspostFirstName = parsed.data[i].auspostContact.firstName;
+          var auspostLastName = parsed.data[i].auspostContact.lastName;
+          var auspostPhone = parsed.data[i].auspostContact.phone;
+          var auspostEmail = parsed.data[i].auspostContact.email;
+          var auspostCompany = parsed.data[i].recipient.company;
 
-        log.debug({
-          title: "Australia Post Contact and Address Details",
-          details:
-            "Name: " +
-            auspostFirstName +
-            " " +
-            auspostLastName +
-            ", Company: " +
-            auspostCompany +
-            ", Phone: " +
-            auspostPhone +
-            ", Email: " +
-            auspostEmail +
-            ", Address: " +
-            auspostAddress +
-            ", Suburb: " +
-            auspostSuburb +
-            ", State: " +
-            auspostState +
-            ", Postcode: " +
-            auspostPostcode +
-            ", Lat: " +
-            auspostLat +
-            ", Lng: " +
-            auspostLng
-        });
+          //Australia Post Address Details
+          var auspostAddress = parsed.data[i].recipient.address;
+          var auspostState = parsed.data[i].recipient.state;
+          var auspostSuburb = parsed.data[i].recipient.suburb;
+          var auspostPostcode = parsed.data[i].recipient.postcode;
+          var auspostLat = parsed.data[i].recipient.coordinates.lat;
+          var auspostLng = parsed.data[i].recipient.coordinates.lng;
+
+          log.debug({
+            title: "Australia Post Contact and Address Details",
+            details:
+              "Name: " +
+              auspostFirstName +
+              " " +
+              auspostLastName +
+              ", Company: " +
+              auspostCompany +
+              ", Phone: " +
+              auspostPhone +
+              ", Email: " +
+              auspostEmail +
+              ", Address: " +
+              auspostAddress +
+              ", Suburb: " +
+              auspostSuburb +
+              ", State: " +
+              auspostState +
+              ", Postcode: " +
+              auspostPostcode +
+              ", Lat: " +
+              auspostLat +
+              ", Lng: " +
+              auspostLng
+          });
+        }
 
         var is_free_job = parsed.data[i].is_free_job;
 
@@ -568,7 +717,8 @@ define([
             stopNameForPickup,
             activeOperator,
             2,
-            is_free_job
+            is_free_job,
+            jobType
           );
           log.debug({
             title: "Pickup Job ID",
@@ -609,7 +759,8 @@ define([
             stopNameForDelivery,
             activeOperator,
             2,
-            is_free_job
+            is_free_job,
+            jobType
           );
 
           log.debug({
@@ -782,7 +933,8 @@ define([
             stopNameForPickup,
             activeOperator,
             2,
-            is_free_job
+            is_free_job,
+            jobType
           );
 
           log.debug({
@@ -823,7 +975,8 @@ define([
             stopNameForDelivery,
             activeOperator,
             2,
-            is_free_job
+            is_free_job,
+            jobType
           );
           log.debug({
             title: "Delivery Job ID",
@@ -928,219 +1081,441 @@ define([
             title: "myresponse_code",
             details: myresponse_code
           });
-        } else if (serviceType == "AMPO") {
-          log.debug({
-            title: "Creating Job for Service Type",
-            details: serviceType
-          });
+        } else if (!isNullorEmpty(parentInternalId)) {
           var serviceInternalId = parsed.data[i].serviceInternalId;
-          var billing = parsed.data[i].serviceRate;
+          var serviceRate = parsed.data[i].serviceRate;
+          if (serviceType.indexOf("AMPO") !== -1) {
+            //AMPO
+            // Create App Job Group
+            var appJobGroupID = createAppJobGroup(
+              "AMPO",
+              customerInternalId,
+              companyLinkedZee,
+              serviceInternalId,
+              dateDDMMYYYY,
+              netsuiteLPOServiceDateDateFormat,
+              job_id
+            );
 
-          //AMPO
-          // Create App Job Group
-          var appJobGroupID = createAppJobGroup(
-            "AMPO",
-            customerInternalId,
-            companyLinkedZee,
-            serviceInternalId,
-            dateDDMMYYYY,
-            netsuiteLPOServiceDateDateFormat,
-            job_id
-          );
+            log.debug({
+              title: "App Job Group ID",
+              details: appJobGroupID
+            });
 
-          log.debug({
-            title: "App Job Group ID",
-            details: appJobGroupID
-          });
+            var appJobGroupRecord = record.load({
+              type: "customrecord_jobgroup",
+              id: appJobGroupID
+            });
 
-          var appJobGroupRecord = record.load({
-            type: "customrecord_jobgroup",
-            id: appJobGroupID
-          });
+            var app_job_group_name = appJobGroupRecord.getValue({
+              fieldId: "name"
+            });
 
-          var app_job_group_name = appJobGroupRecord.getValue({
-            fieldId: "name"
-          });
+            var stopNameForPickup = "PICKUP - " + auspostCompany.toUpperCase();
 
-          var stopNameForPickup = "PICKUP - " + auspostCompany.toUpperCase();
+            //Create App Jobs for LPO PickUp
+            var app_job_id_1 = createAppJobs(
+              customerInternalId,
+              auspostCompany.toUpperCase(),
+              serviceInternalId,
+              currentTime,
+              appJobGroupID,
+              auspostAddress,
+              auspostSuburb,
+              auspostState,
+              auspostPostcode,
+              auspostLat,
+              auspostLng,
+              companyLinkedZee,
+              instructions,
+              null,
+              3,
+              "adhoc",
+              siteCompanyName,
+              app_job_group_name,
+              netsuiteLPOServiceDateDateFormat,
+              dateDDMMYYYY,
+              1,
+              auspostFirstName + " " + auspostLastName,
+              "",
+              null,
+              null,
+              jobDate,
+              stopNameForPickup,
+              activeOperator,
+              2,
+              is_free_job,
+              jobType
+            );
 
-          //Create App Jobs for LPO PickUp
-          var app_job_id_1 = createAppJobs(
-            customerInternalId,
-            auspostCompany.toUpperCase(),
-            serviceInternalId,
-            currentTime,
-            appJobGroupID,
-            auspostAddress,
-            auspostSuburb,
-            auspostState,
-            auspostPostcode,
-            auspostLat,
-            auspostLng,
-            companyLinkedZee,
-            instructions,
-            null,
-            3,
-            "adhoc",
-            siteCompanyName,
-            app_job_group_name,
-            netsuiteLPOServiceDateDateFormat,
-            dateDDMMYYYY,
-            1,
-            auspostFirstName + " " + auspostLastName,
-            "",
-            auspostEmail,
-            null,
-            jobDate,
-            stopNameForPickup,
-            activeOperator,
-            2,
-            is_free_job
-          );
+            log.debug({
+              title: "Pickup Job ID",
+              details: app_job_id_1
+            });
 
-          log.debug({
-            title: "Pickup Job ID",
-            details: app_job_id_1
-          });
+            var stopNameForDelivery =
+              "DELIVERY - " + parentSiteCompanyName.toUpperCase();
+            //Create App Jobs for Site Delivery
+            var app_job_id_2 = createAppJobs(
+              customerInternalId,
+              parentSiteCompanyName.toUpperCase(),
+              serviceInternalId,
+              currentTime,
+              appJobGroupID,
+              parentShippingAddress1 + " " + parentShippingAddress2,
+              parentShippingCity,
+              parentShippingStateProvince,
+              parentShippingZip,
+              parentShippingLat,
+              parentShippingLon,
+              parentCompanyLinkedZee,
+              instructions,
+              null,
+              null,
+              "adhoc",
+              siteCompanyName,
+              app_job_group_name,
+              netsuiteLPOServiceDateDateFormat,
+              dateDDMMYYYY,
+              2,
+              customerContactName,
+              "",
+              customerContactEmail,
+              customerContactPhone,
+              jobDate,
+              stopNameForDelivery,
+              activeOperator,
+              2,
+              is_free_job,
+              jobType
+            );
+            log.debug({
+              title: "Delivery Job ID",
+              details: app_job_id_2
+            });
 
-          var stopNameForDelivery =
-            "DELIVERY - " + siteCompanyName.toUpperCase();
-          //Create App Jobs for Site Delivery
-          var app_job_id_2 = createAppJobs(
-            customerInternalId,
-            siteCompanyName.toUpperCase(),
-            serviceInternalId,
-            currentTime,
-            appJobGroupID,
-            shippingAddress1 + " " + shippingAddress2,
-            shippingCity,
-            shippingStateProvince,
-            shippingZip,
-            shippingLat,
-            shippingLon,
-            companyLinkedZee,
-            instructions,
-            null,
-            null,
-            "adhoc",
-            siteCompanyName,
-            app_job_group_name,
-            netsuiteLPOServiceDateDateFormat,
-            dateDDMMYYYY,
-            2,
-            customerContactName,
-            "",
-            customerContactEmail,
-            customerContactPhone,
-            jobDate,
-            stopNameForDelivery,
-            activeOperator,
-            2,
-            is_free_job
-          );
-          log.debug({
-            title: "Delivery Job ID",
-            details: app_job_id_2
-          });
-
-          var updateJobCollectionJSON = {
-            fields: {
-              appJobGroupId: {
-                stringValue: "" + appJobGroupID + ""
-              },
-              syncedWithNetSuite: {
-                booleanValue: true
-              },
-              stops: {
-                arrayValue: {
-                  values: [
-                    {
-                      mapValue: {
-                        fields: {
-                          type: { stringValue: "pickup" },
-                          label: { stringValue: "Pickup LPO" },
-                          locationName: {
-                            stringValue: "" + auspostCompany + ""
-                          },
-                          address: {
-                            stringValue: auspostAddress
-                          },
-                          suburb: { stringValue: "" + auspostSuburb + "" },
-                          state: {
-                            stringValue: "" + auspostState + ""
-                          },
-                          postcode: { stringValue: "" + auspostPostcode + "" },
-                          sequence: { integerValue: "1" },
-                          status: { stringValue: "pending" },
-                          appJobId: { stringValue: "" + app_job_id_1 + "" },
-                          lat: { stringValue: "" + auspostLat + "" },
-                          lng: { stringValue: "" + auspostLng + "" }
+            var updateJobCollectionJSON = {
+              fields: {
+                appJobGroupId: {
+                  stringValue: "" + appJobGroupID + ""
+                },
+                syncedWithNetSuite: {
+                  booleanValue: true
+                },
+                stops: {
+                  arrayValue: {
+                    values: [
+                      {
+                        mapValue: {
+                          fields: {
+                            type: { stringValue: "pickup" },
+                            label: { stringValue: "Pickup LPO" },
+                            locationName: {
+                              stringValue: "" + auspostCompany + ""
+                            },
+                            address: {
+                              stringValue: auspostAddress
+                            },
+                            suburb: { stringValue: "" + auspostSuburb + "" },
+                            state: {
+                              stringValue: "" + auspostState + ""
+                            },
+                            postcode: {
+                              stringValue: "" + auspostPostcode + ""
+                            },
+                            sequence: { integerValue: "1" },
+                            status: { stringValue: "pending" },
+                            appJobId: { stringValue: "" + app_job_id_1 + "" },
+                            lat: { stringValue: "" + auspostLat + "" },
+                            lng: { stringValue: "" + auspostLng + "" }
+                          }
+                        }
+                      },
+                      {
+                        mapValue: {
+                          fields: {
+                            type: { stringValue: "delivery" },
+                            label: { stringValue: "Delivery Site" },
+                            locationName: {
+                              stringValue: "" + parentSiteCompanyName + ""
+                            },
+                            address: {
+                              stringValue:
+                                "" +
+                                parentShippingAddress1 +
+                                " " +
+                                parentShippingAddress2 +
+                                ""
+                            },
+                            suburb: {
+                              stringValue: "" + parentShippingCity + ""
+                            },
+                            state: {
+                              stringValue: "" + parentShippingStateProvince + ""
+                            },
+                            postcode: {
+                              stringValue: "" + parentShippingZip + ""
+                            },
+                            sequence: { integerValue: "2" },
+                            status: { stringValue: "pending" },
+                            appJobId: { stringValue: "" + app_job_id_2 + "" },
+                            lat: { stringValue: "" + parentShippingLat + "" },
+                            lng: { stringValue: "" + parentShippingLon + "" }
+                          }
                         }
                       }
-                    },
-                    {
-                      mapValue: {
-                        fields: {
-                          type: { stringValue: "delivery" },
-                          label: { stringValue: "Delivery Site" },
-                          locationName: {
-                            stringValue: "" + siteCompanyName + ""
-                          },
-                          address: {
-                            stringValue:
-                              "" +
-                              shippingAddress1 +
-                              " " +
-                              shippingAddress2 +
-                              ""
-                          },
-                          suburb: { stringValue: "" + shippingCity + "" },
-                          state: {
-                            stringValue: "" + shippingStateProvince + ""
-                          },
-                          postcode: { stringValue: "" + shippingZip + "" },
-                          sequence: { integerValue: "2" },
-                          status: { stringValue: "pending" },
-                          appJobId: { stringValue: "" + app_job_id_2 + "" },
-                          lat: { stringValue: "" + shippingLat + "" },
-                          lng: { stringValue: "" + shippingLon + "" }
-                        }
-                      }
-                    }
-                  ]
+                    ]
+                  }
                 }
               }
-            }
-          };
+            };
 
-          var firebaseUpdateURL =
-            "https://firestore.googleapis.com/v1/projects/localmile-plus/databases/(default)/documents/jobs/" +
-            job_id +
-            "?updateMask.fieldPaths=stops&updateMask.fieldPaths=appJobGroupId";
-          var apiHeaders = {};
-          apiHeaders["Content-Type"] = "application/json";
-          apiHeaders["Accept"] = "*/*";
-          apiHeaders["X-HTTP-Method-Override"] = "PATCH";
+            var firebaseUpdateURL =
+              "https://firestore.googleapis.com/v1/projects/localmile-plus/databases/(default)/documents/jobs/" +
+              job_id +
+              "?updateMask.fieldPaths=stops&updateMask.fieldPaths=appJobGroupId";
+            var apiHeaders = {};
+            apiHeaders["Content-Type"] = "application/json";
+            apiHeaders["Accept"] = "*/*";
+            apiHeaders["X-HTTP-Method-Override"] = "PATCH";
 
-          var response = https.request({
-            method: https.Method.POST,
-            url: firebaseUpdateURL,
-            body: JSON.stringify(updateJobCollectionJSON),
-            headers: apiHeaders
-          });
+            var response = https.request({
+              method: https.Method.POST,
+              url: firebaseUpdateURL,
+              body: JSON.stringify(updateJobCollectionJSON),
+              headers: apiHeaders
+            });
 
-          var myresponse_body = response.body;
-          var myresponse_code = response.code;
+            var myresponse_body = response.body;
+            var myresponse_code = response.code;
 
-          log.debug({
-            title: "myresponse_body",
-            details: myresponse_body
-          });
+            log.debug({
+              title: "myresponse_body",
+              details: myresponse_body
+            });
 
-          log.debug({
-            title: "myresponse_code",
-            details: myresponse_code
-          });
+            log.debug({
+              title: "myresponse_code",
+              details: myresponse_code
+            });
+          } else if (serviceType.indexOf("H2H") !== -1) {
+            //H2H
+            // Create App Job Group
+            var appJobGroupID = createAppJobGroup(
+              "H2H",
+              customerInternalId,
+              companyLinkedZee,
+              serviceInternalId,
+              dateDDMMYYYY,
+              netsuiteLPOServiceDateDateFormat,
+              job_id
+            );
+
+            log.debug({
+              title: "App Job Group ID",
+              details: appJobGroupID
+            });
+
+            var appJobGroupRecord = record.load({
+              type: "customrecord_jobgroup",
+              id: appJobGroupID
+            });
+
+            var app_job_group_name = appJobGroupRecord.getValue({
+              fieldId: "name"
+            });
+
+            var stopNameForPickup =
+              "PICKUP - " + parentSiteCompanyName.toUpperCase();
+
+            //Create App Jobs for LPO PickUp
+            var app_job_id_1 = createAppJobs(
+              customerInternalId,
+              parentSiteCompanyName.toUpperCase(),
+              serviceInternalId,
+              currentTime,
+              appJobGroupID,
+              parentShippingAddress1 + " " + parentShippingAddress2,
+              parentShippingCity,
+              parentShippingStateProvince,
+              parentShippingZip,
+              parentShippingLat,
+              parentShippingLon,
+              parentCompanyLinkedZee,
+              instructions,
+              null,
+              3,
+              "adhoc",
+              siteCompanyName,
+              app_job_group_name,
+              netsuiteLPOServiceDateDateFormat,
+              dateDDMMYYYY,
+              1,
+              auspostFirstName + " " + auspostLastName,
+              "",
+              null,
+              null,
+              jobDate,
+              stopNameForPickup,
+              activeOperator,
+              2,
+              is_free_job,
+              jobType
+            );
+
+            log.debug({
+              title: "Pickup Job ID",
+              details: app_job_id_1
+            });
+
+            var stopNameForDelivery =
+              "DELIVERY - " + siteCompanyName.toUpperCase();
+            //Create App Jobs for Site Delivery
+            var app_job_id_2 = createAppJobs(
+              customerInternalId,
+              siteCompanyName.toUpperCase(),
+              serviceInternalId,
+              currentTime,
+              appJobGroupID,
+              shippingAddress1 + " " + shippingAddress2,
+              shippingCity,
+              shippingStateProvince,
+              shippingZip,
+              shippingLat,
+              shippingLon,
+              companyLinkedZee,
+              instructions,
+              null,
+              null,
+              "adhoc",
+              siteCompanyName,
+              app_job_group_name,
+              netsuiteLPOServiceDateDateFormat,
+              dateDDMMYYYY,
+              2,
+              customerContactName,
+              "",
+              customerContactEmail,
+              customerContactPhone,
+              jobDate,
+              stopNameForDelivery,
+              activeOperator,
+              2,
+              is_free_job,
+              jobType
+            );
+            log.debug({
+              title: "Delivery Job ID",
+              details: app_job_id_2
+            });
+
+            var updateJobCollectionJSON = {
+              fields: {
+                appJobGroupId: {
+                  stringValue: "" + appJobGroupID + ""
+                },
+                syncedWithNetSuite: {
+                  booleanValue: true
+                },
+                stops: {
+                  arrayValue: {
+                    values: [
+                      {
+                        mapValue: {
+                          fields: {
+                            type: { stringValue: "pickup" },
+                            label: { stringValue: "Pickup LPO" },
+                            locationName: {
+                              stringValue:
+                                "" + parentSiteCompanyName.toUpperCase() + ""
+                            },
+                            address: {
+                              stringValue:
+                                parentShippingAddress1 +
+                                " " +
+                                parentShippingAddress2
+                            },
+                            suburb: {
+                              stringValue: "" + parentShippingCity + ""
+                            },
+                            state: {
+                              stringValue: "" + parentShippingStateProvince + ""
+                            },
+                            postcode: {
+                              stringValue: "" + parentShippingZip + ""
+                            },
+                            sequence: { integerValue: "1" },
+                            status: { stringValue: "pending" },
+                            appJobId: { stringValue: "" + app_job_id_1 + "" },
+                            lat: { stringValue: "" + parentShippingLat + "" },
+                            lng: { stringValue: "" + parentShippingLon + "" }
+                          }
+                        }
+                      },
+                      {
+                        mapValue: {
+                          fields: {
+                            type: { stringValue: "delivery" },
+                            label: { stringValue: "Delivery Site" },
+                            locationName: {
+                              stringValue: "" + siteCompanyName + ""
+                            },
+                            address: {
+                              stringValue:
+                                "" +
+                                shippingAddress1 +
+                                " " +
+                                shippingAddress2 +
+                                ""
+                            },
+                            suburb: { stringValue: "" + shippingCity + "" },
+                            state: {
+                              stringValue: "" + shippingStateProvince + ""
+                            },
+                            postcode: { stringValue: "" + shippingZip + "" },
+                            sequence: { integerValue: "2" },
+                            status: { stringValue: "pending" },
+                            appJobId: { stringValue: "" + app_job_id_2 + "" },
+                            lat: { stringValue: "" + shippingLat + "" },
+                            lng: { stringValue: "" + shippingLon + "" }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            };
+
+            var firebaseUpdateURL =
+              "https://firestore.googleapis.com/v1/projects/localmile-plus/databases/(default)/documents/jobs/" +
+              job_id +
+              "?updateMask.fieldPaths=stops&updateMask.fieldPaths=appJobGroupId";
+            var apiHeaders = {};
+            apiHeaders["Content-Type"] = "application/json";
+            apiHeaders["Accept"] = "*/*";
+            apiHeaders["X-HTTP-Method-Override"] = "PATCH";
+
+            var response = https.request({
+              method: https.Method.POST,
+              url: firebaseUpdateURL,
+              body: JSON.stringify(updateJobCollectionJSON),
+              headers: apiHeaders
+            });
+
+            var myresponse_body = response.body;
+            var myresponse_code = response.code;
+
+            log.debug({
+              title: "myresponse_body",
+              details: myresponse_body
+            });
+
+            log.debug({
+              title: "myresponse_code",
+              details: myresponse_code
+            });
+          }
         }
       }
     }
@@ -1148,6 +1523,43 @@ define([
   return {
     execute: execute
   };
+
+  function normalizeStreetComparisonValue(value) {
+    if (isNullorEmpty(value)) {
+      return "";
+    }
+    return value.toString().trim().replace(/\s+/g, " ").toUpperCase();
+  }
+
+  function hasLeadingStreetNumber(value) {
+    if (isNullorEmpty(value)) {
+      return false;
+    }
+    return /^\s*\d/.test(value.toString());
+  }
+
+  function removeLeadingStreetNumber(value) {
+    if (isNullorEmpty(value)) {
+      return "";
+    }
+
+    var trimmedValue = value.toString().trim();
+    return trimmedValue.replace(
+      /^\d+[A-Za-z]?(?:\s*[-/]\s*\d+[A-Za-z]?)?\s+/,
+      ""
+    );
+  }
+
+  function removeLeadingAddressDescriptor(value) {
+    if (isNullorEmpty(value)) {
+      return "";
+    }
+
+    return value
+      .toString()
+      .trim()
+      .replace(/^ground\s+floor\s+/i, "");
+  }
 
   /**
    * @description
@@ -1307,7 +1719,9 @@ define([
     lpoServiceDate,
     stopNamePreCreated,
     lpoLinkedZeesOperators,
-    totalStopsForJob
+    totalStopsForJob,
+    isFreeJob,
+    jobType
   ) {
     log.debug({
       title: "createAppJobs",
@@ -1417,6 +1831,13 @@ define([
       fieldId: "custrecord_job_service_price",
       value: servicePrice
     });
+
+    if (isFreeJob == true || isFreeJob == "true") {
+      app_job_rec.setValue({
+        fieldId: "custrecord_job_invoiceable",
+        value: 2
+      });
+    }
 
     app_job_rec.setValue({
       fieldId: "custrecord_job_group",
@@ -1560,7 +1981,10 @@ define([
     apiBody += '"note": "' + appServiceStopNotes + '",';
 
     if (lpoLinkedZeesOperatorsArray.length > 0) {
-      if (lpoLinkedZeesOperatorsArray.length == 1) {
+      if (
+        lpoLinkedZeesOperatorsArray.length == 1 &&
+        jobType == "scheduled_instance"
+      ) {
         apiBody += '"broadcast": "false",';
       } else {
         apiBody += '"broadcast": "true",';
