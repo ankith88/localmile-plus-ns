@@ -199,92 +199,96 @@ define([
       var contactPhone = context.request.parameters.phone;
       var contactFirstName = context.request.parameters.firstName;
 
+      var admin_accepted = context.request.parameters.admin_accepted;
+
       if (isNullorEmpty(zee_id)) {
         zee_id = partnerID;
       }
 
-      //Send Email to LPO and end customer letting them know the job request has been accepted by the franchisee.
+      if (isNullorEmpty(admin_accepted)) {
+        //Send Email to LPO and end customer letting them know the job request has been accepted by the franchisee.
 
-      var emailToCustomerSubject =
-        "Booking confirmed — " + " (" + localMilePlusService + ")";
+        var emailToCustomerSubject =
+          "Booking confirmed — " + " (" + localMilePlusService + ")";
 
-      //Send Email to End Customer
-      var emailToCustomerBody =
-        '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>MailPlus - Authenticate Your Access</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"><style>body,html{margin:0;padding:0;width:100% !important;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;background-color:#f4f7f8;}.email-container{font-family:"Inter",system-ui,-apple-system,sans-serif;max-width:600px;margin:40px auto;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(9,92,123,0.08);border:1px solid #e1e8ed;}.content{padding:45px 35px 35px 35px;color:#333333;line-height:1.6;}.greeting{font-size:22px;margin-bottom:12px;color:#095c7b;font-weight:700;letter-spacing:-0.5px;}.sub-text{font-size:15px;color:#556068;margin-bottom:25px;}.action-box{background-color:#f8fafb;border-radius:12px;padding:30px 20px;margin:25px 0;border-left:4px solid #EAF044;text-align:center;}.action-box-title{font-weight:600;color:#095c7b;margin-bottom:15px;font-size:13px;text-transform:uppercase;letter-spacing:1px;}.security-code{font-size:38px;font-weight:800;color:#095c7b;letter-spacing:6px;margin:10px 0;}.security-hint{font-size:13px;color:#718096;font-weight:500;margin-top:10px;}.button-container{text-align:center;margin:35px 0 20px 0;}.btn-primary{background-color:#EAF044;color:#095c7b !important;padding:16px 36px;text-decoration:none;font-weight:700;font-size:13px;border-radius:8px;display:inline-block;transition:all 0.2s ease-in-out;box-shadow:0 4px 14px rgba(234,240,68,0.4);text-transform:uppercase;letter-spacing:1px;}.btn-primary:hover{background-color:#dbe236;box-shadow:0 6px 18px rgba(234,240,68,0.5);transform:translateY(-1px);}.raw-link-text{font-size:13px;color:#718096;word-break:break-all;margin-top:25px;text-align:center;line-height:1.5;}.raw-link-text a{color:#095c7b;text-decoration:underline;}.branding-banner{background-color:#095c7b;padding:25px 20px;text-align:center;}.brand-logo{display:inline-block;vertical-align:middle;max-height:42px;width:auto;border:0;}.footer{background-color:#f8fafb;padding:30px 20px;text-align:center;font-size:12px;color:#718096;border-top:1px solid #edf2f7;}.footer p{margin:6px 0;line-height:1.5;}@media screen and (max-width:600px){.email-container{margin:10px auto;border-radius:8px;}.content{padding:35px 20px;}.greeting{font-size:20px;}.btn-primary{width:100%;box-sizing:border-box;padding:15px 20px;}.brand-logo{max-height:36px;}}.job-details { background-color: #f8fafb; border-radius: 8px; padding: 25px; margin: 30px 0; border-left: 4px solid #EAF044; } .detail-row { margin-bottom: 12px; display: flex; } .detail-label { font-weight: bold; width: 120px; color: #666; font-size: 13px; text-transform: uppercase; } .detail-value { color: #095c7b; font-weight: 600; }</style></head>';
-      var year = new Date().getFullYear();
-      //Email to LPO to let them know the job request has been accepted by the franchisee.
-
-      emailToCustomerBody +=
-        '<body><div class="email-container"><div class="content"><div class="greeting">Your booking is Confirmed</div><div class="sub-text"><p> Hello ' +
-        contactFirstName +
-        ",</p><p>Your MailPlus operator has confirmed your booking.</p></div>";
-      //Job Details Section
-      emailToCustomerBody +=
-        '<div class="job-details"><div class="detail-row"><span class="detail-label">Reference:</span><span class="detail-value">' +
-        localMilePlusJobId +
-        '</span></div><div class="detail-row"><span class="detail-label">Service:</span><span class="detail-value">' +
-        localMilePlusService +
-        '</span></div><div class="detail-row"><span class="detail-label">Date:</span><span class="detail-value">' +
-        prettyDate +
-        "</span></div>";
-      if (!isNullorEmpty(localMilePlusJobFrequency)) {
-        emailToCustomerBody +=
-          '<div class="detail-row"><span class="detail-label">Frequency:</span><span class="detail-value">' +
-          localMilePlusJobFrequency +
-          "</span></div></div>";
+        //Send Email to End Customer
+        var emailToCustomerBody =
+          '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>MailPlus - Authenticate Your Access</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"><style>body,html{margin:0;padding:0;width:100% !important;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;background-color:#f4f7f8;}.email-container{font-family:"Inter",system-ui,-apple-system,sans-serif;max-width:600px;margin:40px auto;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(9,92,123,0.08);border:1px solid #e1e8ed;}.content{padding:45px 35px 35px 35px;color:#333333;line-height:1.6;}.greeting{font-size:22px;margin-bottom:12px;color:#095c7b;font-weight:700;letter-spacing:-0.5px;}.sub-text{font-size:15px;color:#556068;margin-bottom:25px;}.action-box{background-color:#f8fafb;border-radius:12px;padding:30px 20px;margin:25px 0;border-left:4px solid #EAF044;text-align:center;}.action-box-title{font-weight:600;color:#095c7b;margin-bottom:15px;font-size:13px;text-transform:uppercase;letter-spacing:1px;}.security-code{font-size:38px;font-weight:800;color:#095c7b;letter-spacing:6px;margin:10px 0;}.security-hint{font-size:13px;color:#718096;font-weight:500;margin-top:10px;}.button-container{text-align:center;margin:35px 0 20px 0;}.btn-primary{background-color:#EAF044;color:#095c7b !important;padding:16px 36px;text-decoration:none;font-weight:700;font-size:13px;border-radius:8px;display:inline-block;transition:all 0.2s ease-in-out;box-shadow:0 4px 14px rgba(234,240,68,0.4);text-transform:uppercase;letter-spacing:1px;}.btn-primary:hover{background-color:#dbe236;box-shadow:0 6px 18px rgba(234,240,68,0.5);transform:translateY(-1px);}.raw-link-text{font-size:13px;color:#718096;word-break:break-all;margin-top:25px;text-align:center;line-height:1.5;}.raw-link-text a{color:#095c7b;text-decoration:underline;}.branding-banner{background-color:#095c7b;padding:25px 20px;text-align:center;}.brand-logo{display:inline-block;vertical-align:middle;max-height:42px;width:auto;border:0;}.footer{background-color:#f8fafb;padding:30px 20px;text-align:center;font-size:12px;color:#718096;border-top:1px solid #edf2f7;}.footer p{margin:6px 0;line-height:1.5;}@media screen and (max-width:600px){.email-container{margin:10px auto;border-radius:8px;}.content{padding:35px 20px;}.greeting{font-size:20px;}.btn-primary{width:100%;box-sizing:border-box;padding:15px 20px;}.brand-logo{max-height:36px;}}.job-details { background-color: #f8fafb; border-radius: 8px; padding: 25px; margin: 30px 0; border-left: 4px solid #EAF044; } .detail-row { margin-bottom: 12px; display: flex; } .detail-label { font-weight: bold; width: 120px; color: #666; font-size: 13px; text-transform: uppercase; } .detail-value { color: #095c7b; font-weight: 600; }</style></head>';
+        var year = new Date().getFullYear();
+        //Email to LPO to let them know the job request has been accepted by the franchisee.
 
         emailToCustomerBody +=
-          '<div class="reminder-note"><div class="icon">↻</div><p>Because this is a recurring service, we\'ll send you a quick reminder on the morning of each scheduled pickup day so you know to have your parcels ready. <strong>You don\'t need to do anything to confirm each visit</strong> — the schedule runs automatically.</p></div>';
-      } else {
-        emailToCustomerBody += "</div>";
-      }
+          '<body><div class="email-container"><div class="content"><div class="greeting">Your booking is Confirmed</div><div class="sub-text"><p> Hello ' +
+          contactFirstName +
+          ",</p><p>Your MailPlus operator has confirmed your booking.</p></div>";
+        //Job Details Section
+        emailToCustomerBody +=
+          '<div class="job-details"><div class="detail-row"><span class="detail-label">Reference:</span><span class="detail-value">' +
+          localMilePlusJobId +
+          '</span></div><div class="detail-row"><span class="detail-label">Service:</span><span class="detail-value">' +
+          localMilePlusService +
+          '</span></div><div class="detail-row"><span class="detail-label">Date:</span><span class="detail-value">' +
+          prettyDate +
+          "</span></div>";
+        if (!isNullorEmpty(localMilePlusJobFrequency)) {
+          emailToCustomerBody +=
+            '<div class="detail-row"><span class="detail-label">Frequency:</span><span class="detail-value">' +
+            localMilePlusJobFrequency +
+            "</span></div></div>";
 
-      emailToCustomerBody +=
-        "<p>If anything changes — you don't need a pickup that day, or you'd like to add or remove a day from the schedule — just reply to this email and the MailPlus team will sort it out for you.</p><p>Thank you for using MailPlus. We look forward to helping with your logistics!</p>";
+          emailToCustomerBody +=
+            '<div class="reminder-note"><div class="icon">↻</div><p>Because this is a recurring service, we\'ll send you a quick reminder on the morning of each scheduled pickup day so you know to have your parcels ready. <strong>You don\'t need to do anything to confirm each visit</strong> — the schedule runs automatically.</p></div>';
+        } else {
+          emailToCustomerBody += "</div>";
+        }
 
-      emailToCustomerBody +=
-        '<div class="branding-banner"><img src="https://lh3.googleusercontent.com/d/1hhLMkl8NmyhkhDT9jDg9AYIhbIRsjQQD" alt="MailPlus Logo" class="brand-logo"></div>';
+        emailToCustomerBody +=
+          "<p>If anything changes — you don't need a pickup that day, or you'd like to add or remove a day from the schedule — just reply to this email and the MailPlus team will sort it out for you.</p><p>Thank you for using MailPlus. We look forward to helping with your logistics!</p>";
 
-      emailToCustomerBody +=
-        '<div class="footer"><p><strong>MailPlus</strong> | Business logistics, made simple.</p><p>Powered by MailPlus Australia</p><p style="margin-top:15px;font-size:11px;color:#a0aec0;"> &copy; ' +
-        year +
-        " MailPlus. All rights reserved. <br> You are receiving this system communication as part of your registered account activation flow. </p></div></div>";
+        emailToCustomerBody +=
+          '<div class="branding-banner"><img src="https://lh3.googleusercontent.com/d/1hhLMkl8NmyhkhDT9jDg9AYIhbIRsjQQD" alt="MailPlus Logo" class="brand-logo"></div>';
 
-      emailToCustomerBody += "</body></html>";
+        emailToCustomerBody +=
+          '<div class="footer"><p><strong>MailPlus</strong> | Business logistics, made simple.</p><p>Powered by MailPlus Australia</p><p style="margin-top:15px;font-size:11px;color:#a0aec0;"> &copy; ' +
+          year +
+          " MailPlus. All rights reserved. <br> You are receiving this system communication as part of your registered account activation flow. </p></div></div>";
 
-      if (!isNullorEmpty(contactEmail)) {
-        var sendOutEmailJSON = {
-          from: "localmile@mailplus.com.au",
-          to: contactEmail,
-          cc: "",
-          subject: emailToCustomerSubject,
-          html: emailToCustomerBody,
-          metadata: {
-            customerId: originalCustomerInternalIdFromLPODB,
-            jobId: localMilePlusJobId
-          }
-        };
+        emailToCustomerBody += "</body></html>";
 
-        log.debug({
-          title: "sendOutEmailJSON",
-          details: JSON.stringify(sendOutEmailJSON)
-        });
+        if (!isNullorEmpty(contactEmail)) {
+          var sendOutEmailJSON = {
+            from: "localmile@mailplus.com.au",
+            to: contactEmail,
+            cc: "",
+            subject: emailToCustomerSubject,
+            html: emailToCustomerBody,
+            metadata: {
+              customerId: originalCustomerInternalIdFromLPODB,
+              jobId: localMilePlusJobId
+            }
+          };
 
-        var firebaseUpdateURL =
-          "https://prospectplus.com.au/api/integrations/netsuite/send-email";
+          log.debug({
+            title: "sendOutEmailJSON",
+            details: JSON.stringify(sendOutEmailJSON)
+          });
 
-        var apiHeaders = {};
-        apiHeaders["Content-Type"] = "application/json";
+          var firebaseUpdateURL =
+            "https://prospectplus.com.au/api/integrations/netsuite/send-email";
 
-        var response = https.request({
-          method: https.Method.POST,
-          url: firebaseUpdateURL,
-          body: JSON.stringify(sendOutEmailJSON),
-          headers: apiHeaders
-        });
+          var apiHeaders = {};
+          apiHeaders["Content-Type"] = "application/json";
 
-        var myresponse_body = response.body;
-        var myresponse_code = response.code;
+          var response = https.request({
+            method: https.Method.POST,
+            url: firebaseUpdateURL,
+            body: JSON.stringify(sendOutEmailJSON),
+            headers: apiHeaders
+          });
+
+          var myresponse_body = response.body;
+          var myresponse_code = response.code;
+        }
       }
 
       log.audit({

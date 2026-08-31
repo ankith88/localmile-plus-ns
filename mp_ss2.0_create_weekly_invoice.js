@@ -35,6 +35,137 @@ define([
   var error_customers = [];
   var error_specialCustomers = [];
 
+  function addInvoiceItems(recInvoice, invoiceLineItems) {
+    for (var i = 0; i < invoiceLineItems.length; i++) {
+      recInvoice.selectNewLine({
+        sublistId: "item"
+      });
+
+      recInvoice.setCurrentSublistValue({
+        sublistId: "item",
+        fieldId: "item",
+        value: invoiceLineItems[i].item
+      });
+
+      recInvoice.setCurrentSublistValue({
+        sublistId: "item",
+        fieldId: "quantity",
+        value: invoiceLineItems[i].quantity
+      });
+
+      recInvoice.setCurrentSublistValue({
+        sublistId: "item",
+        fieldId: "rate",
+        value: invoiceLineItems[i].rate
+      });
+      recInvoice.commitLine({ sublistId: "item" });
+    }
+  }
+
+  function updateInvoiceJobs(jobInternalIdArray, invoiceId) {
+    for (var i = 0; i < jobInternalIdArray.length; i++) {
+      var job_record = record.load({
+        type: "customrecord_job",
+        id: jobInternalIdArray[i]
+      });
+      job_record.setValue({
+        fieldId: "custrecord_job_invoice",
+        value: invoiceId
+      });
+      job_record.setValue({
+        fieldId: "custrecord_job_date_reviewed",
+        value: getDateStoreNS()
+      });
+      job_record.setValue({
+        fieldId: "custrecord_job_date_inv_finalised",
+        value: getDateStoreNS()
+      });
+      job_record.setValue({
+        fieldId: "custrecord_job_date_invoiced",
+        value: getDateStoreNS()
+      });
+      // job_record.save({
+      //   enableSourcing: true,
+      //   ignoreMandatoryFields: true
+      // });
+    }
+  }
+
+  function createInvoiceForCustomer(
+    customerId,
+    franchiseeId,
+    invoiceLineItems,
+    jobInternalIdArray,
+    options
+  ) {
+    options = options || {};
+
+    var recInvoice = record.create({
+      type: record.Type.INVOICE,
+      isDynamic: true
+    });
+
+    recInvoice.setValue({
+      fieldId: "customform",
+      value: options.customform || 116
+    });
+    recInvoice.setValue({
+      fieldId: "entity",
+      value: customerId
+    });
+
+    var partnerRecord = record.load({
+      type: record.Type.PARTNER,
+      id: franchiseeId
+    });
+
+    recInvoice.setValue({
+      fieldId: "department",
+      value: partnerRecord.getValue({ fieldId: "department" })
+    });
+    recInvoice.setValue({
+      fieldId: "location",
+      value: partnerRecord.getValue({ fieldId: "location" })
+    });
+
+    recInvoice.setValue({
+      fieldId: "trandate",
+      value: getDateStoreNS()
+    });
+    recInvoice.setValue({
+      fieldId: "custbody_dont_update_trandate",
+      value: true
+    });
+    recInvoice.setValue({
+      fieldId: "custbody_inv_date_range_from",
+      value: getWeekStartNS()
+    });
+    recInvoice.setValue({
+      fieldId: "custbody_inv_date_range_to",
+      value: getWeekEndNS()
+    });
+
+    if (!isNullorEmpty(options.invType)) {
+      recInvoice.setValue({
+        fieldId: "custbody_inv_type",
+        value: options.invType
+      });
+    }
+
+    recInvoice.setValue({ fieldId: "partner", value: franchiseeId });
+    recInvoice.setValue({ fieldId: "terms", value: options.terms || 1 });
+
+    addInvoiceItems(recInvoice, invoiceLineItems);
+
+    // var invoiceId = recInvoice.save({
+    //   enableSourcing: true,
+    //   ignoreMandatoryFields: true
+    // });
+
+    updateInvoiceJobs(jobInternalIdArray, invoiceId);
+    return invoiceId;
+  }
+
   function invoiceCreation() {
     //NetSuite Search: LocalMile.PLUS - Jobs Completed - To be Invoiced
     var searched_summary = search.load({
@@ -46,6 +177,7 @@ define([
 
     var oldCustomerInternalId = null;
     var oldServiceInternalId = null;
+    var oldAppJobGroupInternalId = null;
     var oldNSItemInternalId = null;
     var oldNSItemRate = null;
     var oldFranchisee = null;
@@ -56,6 +188,9 @@ define([
     var jobInternalIdArray = [];
     resultSet_summary.each(function (searchResult_summary) {
       //Customer
+      var app_job_group_internal_id = searchResult_summary.getValue({
+        name: "internalid"
+      });
       var customer_internal_id = searchResult_summary.getValue({
         name: "custrecord_jobgroup_customer"
       });
@@ -73,6 +208,9 @@ define([
         name: "custrecord_service_price",
         join: "CUSTRECORD_JOBGROUP_SERVICE"
       });
+      if (nsItemRate == 0.0) {
+        nsItemRate = 0.0;
+      }
       var jobInternalId = searchResult_summary.getValue({
         name: "internalid",
         join: "CUSTRECORD_JOB_GROUP"
@@ -97,6 +235,10 @@ define([
       log.debug({
         title: "nsItemRate",
         details: nsItemRate
+      });
+      log.debug({
+        title: "app_job_group_internal_id",
+        details: app_job_group_internal_id
       });
       log.debug({
         title: "jobInternalId",
@@ -124,15 +266,6 @@ define([
       week_end_date.setDate(week_end_date.getDate() + 6);
       week_end_date.setHours(23, 59, 59, 999);
 
-      log.debug({
-        title: "week_start_date",
-        details: week_start_date
-      });
-      log.debug({
-        title: "week_end_date",
-        details: week_end_date
-      });
-
       service_start_date = format.format({
         value: week_start_date,
         type: format.Type.DATE
@@ -142,56 +275,57 @@ define([
         type: format.Type.DATE
       });
 
-      log.debug({
-        title: "service_start_date",
-        details: service_start_date
-      });
-      log.debug({
-        title: "service_end_date",
-        details: service_end_date
-      });
-
       // try {
       //If start of the loop, increment the qty of the item and add the item and rate into arrays
-      if (
-        isNullorEmpty(oldServiceInternalId) &&
-        isNullorEmpty(oldCustomerInternalId)
-      ) {
-        nsItemTotalQty++;
-        invoiceLineItems.push({
-          item: nsItemInternalId,
-          rate: nsItemRate,
-          quantity: nsItemTotalQty
-        });
+      if (isNullorEmpty(oldAppJobGroupInternalId)) {
         //Add the job internal id into the array
         jobInternalIdArray.push(jobInternalId);
       } else if (
-        oldServiceInternalId == serviceInternalId &&
-        oldCustomerInternalId == customer_internal_id
+        oldCustomerInternalId == customer_internal_id &&
+        oldAppJobGroupInternalId == app_job_group_internal_id
       ) {
-        nsItemTotalQty++;
-        //Update the quantity of the item in the array
-        for (var i = 0; i < invoiceLineItems.length; i++) {
-          if (invoiceLineItems[i].item == nsItemInternalId) {
-            invoiceLineItems[i].quantity = nsItemTotalQty;
-          }
-        }
+        log.audit({
+          title: "Same Customer & same app job group id",
+          details: ""
+        });
         jobInternalIdArray.push(jobInternalId);
       } else if (
         oldCustomerInternalId == customer_internal_id &&
-        oldServiceInternalId != serviceInternalId
+        oldAppJobGroupInternalId != app_job_group_internal_id
       ) {
         log.audit({
-          title: "Same Customer but different service",
+          title: "Same Customer & different app job group id",
           details: "Store new invoice line item for the new service"
         });
+        log.debug({
+          title: "oldNSItemInternalId",
+          details: oldNSItemInternalId
+        });
+        log.debug({
+          title: "oldNSItemRate",
+          details: oldNSItemRate
+        });
 
-        //Add the new item and rate into the array and increment the quantity of the item
-        nsItemTotalQty = 1;
-        invoiceLineItems.push({
-          item: nsItemInternalId,
-          rate: nsItemRate,
-          quantity: nsItemTotalQty
+        //Check if there are any invoice line items to be added before creating a new invoice and if it is there, increment the quantity of the existing items instead of adding duplicate items.
+        var itemFound = false;
+        for (var i = 0; i < invoiceLineItems.length; i++) {
+          if (invoiceLineItems[i].item == oldNSItemInternalId) {
+            invoiceLineItems[i].quantity += 1;
+            itemFound = true;
+            break;
+          }
+        }
+
+        if (!itemFound) {
+          invoiceLineItems.push({
+            item: oldNSItemInternalId,
+            rate: oldNSItemRate,
+            quantity: 1
+          });
+        }
+        log.debug({
+          title: "invoiceLineItems",
+          details: invoiceLineItems
         });
         jobInternalIdArray.push(jobInternalId);
       } else if (
@@ -203,23 +337,42 @@ define([
           details:
             "Create new invoice for the previous customer and reset the arrays for the new customer"
         });
-        //Create Invoice
         log.debug({
-          title: "START OF INVOICE CREATION",
-          details: ""
+          title: "oldNSItemInternalId",
+          details: oldNSItemInternalId
+        });
+        log.debug({
+          title: "oldNSItemRate",
+          details: oldNSItemRate
+        });
+        //Check if there are any invoice line items to be added before creating a new invoice and if it is there, increment the quantity of the existing items instead of adding duplicate items.
+        var itemFound = false;
+        for (var i = 0; i < invoiceLineItems.length; i++) {
+          if (invoiceLineItems[i].item == oldNSItemInternalId) {
+            invoiceLineItems[i].quantity += 1;
+            itemFound = true;
+            break;
+          }
+        }
+
+        if (!itemFound) {
+          invoiceLineItems.push({
+            item: oldNSItemInternalId,
+            rate: oldNSItemRate,
+            quantity: 1
+          });
+        }
+
+        //log invoiceLineItems
+        log.audit({
+          title: "invoiceLineItems",
+          details: JSON.stringify(invoiceLineItems)
         });
 
+        //Create Invoice
         log.audit({
-          title: getDateStoreNS(),
-          details: "getDateStoreNS()"
-        });
-        log.audit({
-          title: getWeekStartNS(),
-          details: "getWeekStartNS()"
-        });
-        log.audit({
-          title: getWeekEndNS(),
-          details: "getWeekEndNS()"
+          title: "START OF INVOICE CREATION",
+          details: ""
         });
 
         recInvoice = record.create({
@@ -343,20 +496,10 @@ define([
 
         return false;
       }
-      // } catch (e) {
-      //   log.error({
-      //     title: "invoiceCreation loop error",
-      //     details: e
-      //   });
-      // }
-
-      log.debug({
-        title: "invoiceLineItems",
-        details: JSON.stringify(invoiceLineItems)
-      });
 
       oldCustomerInternalId = customer_internal_id;
       oldServiceInternalId = serviceInternalId;
+      oldAppJobGroupInternalId = app_job_group_internal_id;
       oldNSItemInternalId = nsItemInternalId;
       oldNSItemRate = nsItemRate;
       oldFranchisee = franchisee;
@@ -370,21 +513,32 @@ define([
         details: "Create new invoice for the last customer and reset the arrays"
       });
 
-      log.debug({
-        title: "jobCount",
-        details: jobCount
-      });
-      log.debug({
+      //Check if there are any invoice line items to be added before creating a new invoice and if it is there, increment the quantity of the existing items instead of adding duplicate items.
+      var itemFound = false;
+      for (var i = 0; i < invoiceLineItems.length; i++) {
+        if (invoiceLineItems[i].item == oldNSItemInternalId) {
+          invoiceLineItems[i].quantity += 1;
+          itemFound = true;
+          break;
+        }
+      }
+
+      if (!itemFound) {
+        invoiceLineItems.push({
+          item: oldNSItemInternalId,
+          rate: oldNSItemRate,
+          quantity: 1
+        });
+      }
+
+      //log invoiceLineItems
+      log.audit({
         title: "invoiceLineItems",
         details: JSON.stringify(invoiceLineItems)
       });
-      log.debug({
-        title: "jobInternalIdArray",
-        details: JSON.stringify(jobInternalIdArray)
-      });
 
       //Create Invoice
-      log.debug({
+      log.audit({
         title: "START OF INVOICE CREATION",
         details: ""
       });
@@ -497,386 +651,6 @@ define([
           ignoreMandatoryFields: true
         });
       }
-    }
-  }
-
-  function updateJobs(
-    customer_internal_id,
-    invoiceId,
-    service_start_date,
-    service_end_date,
-    franchisee,
-    from_invoice,
-    special_customer_internal_id,
-    zee_text
-  ) {
-    var count_loop_job = 0;
-
-    var strFormula =
-      "COALESCE({custrecord_job_service.custrecord_service_franchisee},{custrecord_job_group.custrecord_jobgroup_franchisee},{custrecord_job_franchisee},'')";
-
-    if (from_invoice == "Yes") {
-      var searched_alljobs = search.load({
-        id: "customsearch_job_invoicing_jobs",
-        type: "customrecord_job"
-      });
-
-      var zee_record = record.load({
-        type: record.Type.PARTNER,
-        id: franchisee
-      });
-
-      zee_text = zee_record.getValue({ fieldId: "entitytitle" });
-    } else {
-      var searched_alljobs = search.load({
-        id: "customsearch_job_inv_process_job_all",
-        type: "customrecord_job"
-      });
-    }
-
-    searched_alljobs.filters.push(
-      search.createFilter({
-        name: "custrecord_job_customer",
-        operator: search.Operator.IS,
-        values: customer_internal_id
-      })
-    );
-
-    if (!isNullorEmpty(special_customer_internal_id)) {
-      log.debug({
-        title: "special_customer_internal_id",
-        details: special_customer_internal_id
-      });
-
-      searched_alljobs.filters.push(
-        search.createFilter({
-          name: "custrecord_job_special_customer",
-          operator: search.Operator.IS,
-          values: special_customer_internal_id
-        })
-      );
-    } else {
-      searched_alljobs.filters.push(
-        search.createFilter({
-          name: "custrecord_job_special_customer",
-          operator: search.Operator.IS,
-          values: "@NONE@"
-        })
-      );
-    }
-    searched_alljobs.filters.push(
-      search.createFilter({
-        name: "formulatext",
-        operator: search.Operator.IS,
-        values: zee_text,
-        formula: strFormula
-      })
-    );
-
-    if (
-      !isNullorEmpty(service_start_date) &&
-      !isNullorEmpty(service_end_date)
-    ) {
-      searched_alljobs.filters.push(
-        search.createFilter({
-          name: "custrecord_job_date_scheduled",
-          operator: search.Operator.ONORAFTER,
-          values: format.parse({
-            value: service_start_date,
-            type: format.Type.DATE
-          })
-        })
-      );
-
-      searched_alljobs.filters.push(
-        search.createFilter({
-          name: "custrecord_job_date_scheduled",
-          operator: search.Operator.ONORBEFORE,
-          values: format.parse({
-            value: service_end_date,
-            type: format.Type.DATE
-          })
-        })
-      );
-    }
-
-    var resultSet_alljobs = searched_alljobs.run();
-
-    var reschedule;
-
-    resultSet_alljobs.each(function (searchResult_alljobs) {
-      var usage_loopstart_job = ctx.getRemainingUsage();
-      count_loop_job++;
-
-      //nlapiLogExecution('DEBUG', 'START ---> usage remianing per loop of job update', ctx.getRemainingUsage());
-      try {
-        if (ctx.getRemainingUsage() <= usage_threshold) {
-          log.audit({
-            title: "switch inside Job Update",
-            details: "switch inside Job Update"
-          });
-          log.audit({
-            title: "Job Update | Customer",
-            details: customer_internal_id
-          });
-          log.audit({ title: "Job Update | Invoice", details: invoiceId });
-
-          var params = {
-            custscript_customer_id: customer_internal_id.toString(),
-            custscript_invoiceid: invoiceId.toString(),
-            custscript_prev_deployment: ctx.getDeploymentId(),
-            custscript_service_start_date: service_start_date.toString(),
-            custscript_service_end_date: service_end_date.toString(),
-            custscript_zee: franchisee.toString(),
-            custscript_special_customer_id: special_customer_internal_id,
-            custscript_error_customers: error_customers.join(","),
-            custscript_error_special_customers:
-              error_specialCustomers.join(","),
-            custscript_zee_text: zee_text
-          };
-
-          var reschedule = task.create({
-            taskType: task.TaskType.SCHEDULED_SCRIPT,
-            scriptId: prev_inv_deploy,
-            deploymentId: adhoc_inv_deploy,
-            params: params
-          });
-
-          reschedule.submit();
-
-          log.audit({
-            title: "Reschedule Return",
-            details: reschedule
-          });
-          if (reschedule == false) {
-            return false;
-          }
-        }
-
-        var job_id = searchResult_alljobs.getValue("internalid");
-        var invoiceable_yes_no = searchResult_alljobs.getValue(
-          "custrecord_job_invoiceable"
-        );
-
-        var job_record = record.load({
-          type: "customrecord_job",
-          id: job_id
-        });
-
-        // job_record.getFieldValue('custrecord_job_date_invoiced') != getDate()
-        if (
-          isNullorEmpty(
-            job_record.getValue({ fieldId: "custrecord_job_date_invoiced" })
-          ) &&
-          isNullorEmpty(
-            job_record.getValue({ fieldId: "custrecord_job_invoice" })
-          )
-        ) {
-          if (from_invoice == "Yes") {
-            var jobGroupStatus = job_record.getValue({
-              fieldId: "custrecord_job_group_status"
-            });
-            var jobInvoiceable = job_record.getValue({
-              fieldId: "custrecord_job_invoiceable"
-            });
-            var jobCat = job_record.getValue({
-              fieldId: "custrecord_job_service_category"
-            });
-            var packageStatus = job_record.getValue({
-              fieldId: "custrecord_package_status"
-            });
-
-            if (isNullorEmpty(jobInvoiceable)) {
-              if (!isNullorEmpty(packageStatus)) {
-                if (packageStatus == 1 || isNullorEmpty(packageStatus)) {
-                  // Job Group Status is Null for Extras and Jobs Created in NS
-                  job_record.setValue({
-                    fieldId: "custrecord_job_invoiceable",
-                    value: 1
-                  });
-                } else {
-                  job_record.setValue({
-                    fieldId: "custrecord_job_invoiceable",
-                    value: 2
-                  });
-                }
-              } else {
-                if (
-                  jobGroupStatus == "Completed" ||
-                  isNullorEmpty(jobGroupStatus)
-                ) {
-                  // Job Group Status is Null for Extras and Jobs Created in NS
-                  job_record.setValue({
-                    fieldId: "custrecord_job_invoiceable",
-                    value: 1
-                  });
-                } else {
-                  job_record.setValue({
-                    fieldId: "custrecord_job_invoiceable",
-                    value: 2
-                  });
-                }
-              }
-            }
-            job_record.setValue({
-              fieldId: "custrecord_job_invoice",
-              value: invoiceId
-            });
-            job_record.setValue({
-              fieldId: "custrecord_job_date_reviewed",
-              value: getDate()
-            });
-            job_record.setValue({
-              fieldId: "custrecord_job_date_inv_finalised",
-              value: getDate()
-            });
-            job_record.setValue({
-              fieldId: "custrecord_job_date_invoiced",
-              value: getDate()
-            });
-            job_record.setValue({
-              fieldId: "custrecord_job_invoice_custom",
-              value: 1
-            });
-          } else {
-            if (
-              !isNullorEmpty(
-                job_record.getValue({ fieldId: "custrecord_job_date_reviewed" })
-              ) &&
-              !isNullorEmpty(
-                job_record.getValue({
-                  fieldId: "custrecord_job_date_inv_finalised"
-                })
-              )
-            ) {
-              job_record.setValue({
-                fieldId: "custrecord_job_invoice",
-                value: invoiceId
-              });
-              job_record.setValue({
-                fieldId: "custrecord_job_date_invoiced",
-                value: getDate()
-              });
-              job_record.setValue({
-                fieldId: "custrecord_job_invoice_custom",
-                value: 2
-              });
-            } else {
-              var body =
-                "Customer: " +
-                customer_internal_id +
-                " | Job: " +
-                job_id +
-                "cannot be updated because Date Review & Date Invoice Finalised is Empty.";
-
-              email.send({
-                author: 112209,
-                body: body,
-                recipients: [
-                  "ankith.ravindran@mailplus.com.au",
-                  "willian.suryadharma@mailplus.com.au"
-                ],
-                subject:
-                  "Invoice Creation - Customer: " +
-                  customer_internal_id +
-                  " cannot update Job"
-              });
-
-              //WS log:
-              log.error({
-                title: "Job #: " + count_loop_job + " | Job: " + job_id + ".",
-                details: "ERROR: JOB X UPDATED - Inv & Date Invoice not empty."
-              });
-
-              return false;
-            }
-          }
-
-          job_record.save({
-            enableSourcing: true,
-            ignoreMandatoryFields: true
-          });
-
-          //WS Log:
-          log.debug({
-            title: "Job #: " + count_loop_job + " | Job: " + job_id + ".",
-            details: usage_loopstart_job - ctx.getRemainingUsage()
-          });
-        } else {
-          var body =
-            "Customer: " +
-            customer_internal_id +
-            " | Job: " +
-            job_id +
-            "cannot be updated because Invoice ID and Date Invoice is not Empty.";
-
-          email.send({
-            author: 409635,
-            body: body,
-            recipients: [
-              "ankith.ravindran@mailplus.com.au",
-              "willian.suryadharma@mailplus.com.au"
-            ],
-            subject:
-              "Invoice Creation - Customer: " +
-              customer_internal_id +
-              " cannot update Job"
-          });
-
-          //WS log:
-          log.error({
-            title: "Job #: " + count_loop_job + " | Job: " + job_id + ".",
-            details: "ERROR: JOB X UPDATED - Inv & Date Invoice not empty."
-          });
-
-          return false;
-        }
-      } catch (e) {
-        error_customers[error_customers.length] = customer_internal_id;
-
-        var message = "";
-        message += "Customer Internal ID: " + customer_internal_id + "</br>";
-        message +=
-          "Customer:  <a href ='https://1048144.app.netsuite.com/app/common/entity/custjob.nl?id=" +
-          customer_internal_id +
-          "'> View Customer </a></br>";
-        message +=
-          "----------------------------------------------------------------------------------</br>";
-        message +=
-          "Job: <a href ='https://1048144.app.netsuite.com/app/common/custom/custrecordentry.nl?rectype=941&id=" +
-          job_id +
-          "'> View Job </a></br>";
-        message +=
-          "----------------------------------------------------------------------------------</br>";
-        message += e;
-
-        email.send({
-          author: 409635,
-          body: message,
-          recipients: [
-            "ankith.ravindran@mailplus.com.au",
-            "willian.suryadharma@mailplus.com.au"
-          ],
-          subject:
-            "Invoice Creation - Customer: " +
-            customer_internal_id +
-            " cannot update Job"
-        });
-      }
-
-      return true;
-    });
-
-    //WS Log:
-    log.debug({
-      title: "--> END | update job function",
-      details: ctx.getRemainingUsage()
-    });
-
-    if (reschedule != false) {
-      return true;
-    } else {
-      return false;
     }
   }
 

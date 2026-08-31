@@ -610,11 +610,19 @@ define([
           }
         } else {
           //Australia Post Contact Details
-          var auspostFirstName = parsed.data[i].auspostContact.firstName;
-          var auspostLastName = parsed.data[i].auspostContact.lastName;
-          var auspostPhone = parsed.data[i].auspostContact.phone;
-          var auspostEmail = parsed.data[i].auspostContact.email;
-          var auspostCompany = parsed.data[i].recipient.company;
+          if (!isNullorEmpty(parsed.data[i].auspostContact)) {
+            var auspostFirstName = parsed.data[i].auspostContact.firstName;
+            var auspostLastName = parsed.data[i].auspostContact.lastName;
+            var auspostPhone = parsed.data[i].auspostContact.phone;
+            var auspostEmail = parsed.data[i].auspostContact.email;
+            var auspostCompany = parsed.data[i].recipient.company;
+          } else {
+            var auspostFirstName = parsed.data[i].recipient.firstName;
+            var auspostLastName = parsed.data[i].recipient.lastName;
+            var auspostPhone = parsed.data[i].recipient.phone;
+            var auspostEmail = parsed.data[i].recipient.email;
+            var auspostCompany = parsed.data[i].recipient.company;
+          }
 
           //Australia Post Address Details
           var auspostAddress = parsed.data[i].recipient.address;
@@ -1273,7 +1281,7 @@ define([
             var firebaseUpdateURL =
               "https://firestore.googleapis.com/v1/projects/localmile-plus/databases/(default)/documents/jobs/" +
               job_id +
-              "?updateMask.fieldPaths=stops&updateMask.fieldPaths=appJobGroupId";
+              "?updateMask.fieldPaths=stops&updateMask.fieldPaths=appJobGroupId&updateMask.fieldPaths=syncedWithNetSuite";
             var apiHeaders = {};
             apiHeaders["Content-Type"] = "application/json";
             apiHeaders["Accept"] = "*/*";
@@ -1490,7 +1498,7 @@ define([
             var firebaseUpdateURL =
               "https://firestore.googleapis.com/v1/projects/localmile-plus/databases/(default)/documents/jobs/" +
               job_id +
-              "?updateMask.fieldPaths=stops&updateMask.fieldPaths=appJobGroupId";
+              "?updateMask.fieldPaths=stops&updateMask.fieldPaths=appJobGroupId&updateMask.fieldPaths=syncedWithNetSuite";
             var apiHeaders = {};
             apiHeaders["Content-Type"] = "application/json";
             apiHeaders["Accept"] = "*/*";
