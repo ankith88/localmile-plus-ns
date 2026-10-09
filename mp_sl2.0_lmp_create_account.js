@@ -65,6 +65,7 @@ define([
       });
 
       var internalid = context.request.parameters.customerInternalId;
+      var serviceRate = context.request.parameters.rate;
 
       //Load Parent LPO Record
       var customerRecord = record.load({
@@ -307,9 +308,12 @@ define([
       });
       serviceRecord.setValue({ fieldId: "name", value: "PMPO" });
       //Adhoc rate set at $15 for PMPO, as per discussion with Ops Team on 19/05/2026. This is to ensure that the service change record gets created with the correct rate and frequency for the PMPO service when the services are added to the customer record.
+      if (isNullorEmpty(serviceRate)) {
+        serviceRate = 15;
+      }
       serviceRecord.setValue({
         fieldId: "custrecord_service_price",
-        value: 15
+        value: serviceRate
       });
       serviceRecord.setValue({
         fieldId: "custrecord_service",
@@ -344,7 +348,7 @@ define([
       });
 
       localmilePMPOInternalID = pmpoServiceInternalId;
-      localmilePMPORate = 15;
+      localmilePMPORate = serviceRate;
 
       //CREATE SERVICE CHANGE RECORD FOR PMPO SERVICE
       var new_service_change_record = record.create({
@@ -370,7 +374,7 @@ define([
 
       new_service_change_record.setValue({
         fieldId: "custrecord_servicechg_new_price",
-        value: 15
+        value: serviceRate
       });
       new_service_change_record.setValue({
         fieldId: "custrecord_servicechg_new_freq",

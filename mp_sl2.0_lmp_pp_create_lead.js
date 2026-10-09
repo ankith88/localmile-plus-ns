@@ -105,6 +105,8 @@ define([
         fieldId: "custentity_localmile_sync"
       });
 
+      var dbProspectPlusBody = null;
+
       var firebaseLeadURL =
         "https://firestore.googleapis.com/v1/projects/mailplus-outbound-leads-crm/databases/(default)/documents/leads/" +
         internalid;
@@ -125,12 +127,43 @@ define([
       //   details: responseProspectPlusLeadDocument
       // });
 
-      var dbProspectPlusBody = responseProspectPlusLeadDocument.body;
+      dbProspectPlusBody = responseProspectPlusLeadDocument.body;
 
       log.audit({
         title: "Lead ProspectPlus Firebase Data",
         details: dbProspectPlusBody
       });
+
+      //Error Output - { "error": { "code": 404, "message": "Document \"projects/mailplus-outbound-leads-crm/databases/(default)/documents/leads/67949\" not found.", "status": "NOT_FOUND" } }
+
+      if (responseProspectPlusLeadDocument.code == 404) {
+        log.error({
+          title: "Lead Not Found in Firebase",
+          details: responseProspectPlusLeadDocument.body
+        });
+
+        var firebaseCompanyURL =
+          "https://firestore.googleapis.com/v1/projects/mailplus-outbound-leads-crm/databases/(default)/documents/companies/" +
+          internalid;
+
+        var apiHeaders = {};
+        apiHeaders["Content-Type"] = "application/json";
+        apiHeaders["Accept"] = "*/*";
+        apiHeaders["Authorization"] = "Bearer " + idToken;
+
+        var responseProspectPlusLeadDocument = https.request({
+          method: https.Method.GET,
+          url: firebaseCompanyURL,
+          headers: apiHeaders
+        });
+
+        // log.debug({
+        //   title: "responseProspectPlusLeadDocument",
+        //   details: responseProspectPlusLeadDocument
+        // });
+
+        dbProspectPlusBody = responseProspectPlusLeadDocument.body;
+      }
 
       //{ "name": "projects/mailplus-outbound-leads-crm/databases/(default)/documents/leads/2006779", "fields": { "customerPhone": { "stringValue": "0402712233" }, "customerEntityId": { "stringValue": "71229051" }, "netsuiteLeadStatus": { "stringValue": "SUSPECT-Hot Lead" }, "zip": { "stringValue": "2000" }, "address1": { "stringValue": "- None -" }, "state": { "stringValue": "NSW" }, "salesRepAssigned": { "stringValue": "Lee Russell" }, "industrySubCategory": { "stringValue": "- None -" }, "longitude": { "stringValue": "151.2081213" }, "customerStatus": { "stringValue": "Hot Lead" }, "street": { "stringValue": "175 Pitt Street" }, "customerIndustryCategory": { "stringValue": "- None -" }, "leadType": { "stringValue": "Service" }, "companyName": { "stringValue": "Test New Website 20260618 V4" }, "bucket": { "stringValue": "inbound" }, "salesRecordInternalId": { "stringValue": "415562" }, "internalid": { "stringValue": "2006779" }, "customerEmail": { "stringValue": "ankith88+20260618V4@gmail.com" }, "franchisee": { "stringValue": "Waterloo" }, "dateLeadEntered": { "stringValue": "17/6/2026" }, "latitude": { "stringValue": "-33.8686989" }, "customerServiceEmail": { "stringValue": "ankith88+20260618V4@gmail.com" }, "industryCategory": { "stringValue": "- None -" }, "customerSource": { "stringValue": "Inbound - New Website" }, "salesRepAssignedCalendlyLink": { "stringValue": "https://calendly.com/lee-russell-mailplus/mailplus-intro-call-lee" }, "city": { "stringValue": "Sydney" }, "accountManagerAssigned": { "stringValue": "Lee Russell" }, "mpexInvoicingCycle": { "stringValue": "null" }, "franchisee_id": { "stringValue": "1645493" }, "customerSalesRep": { "stringValue": "Lee Russell" }, "customerCampaign": { "stringValue": "Digital Lead Campaign" }, "websiteUrl": { "stringValue": "" } }, "createTime": "2026-06-18T04:02:33.372383Z", "updateTime": "2026-06-18T20:35:03.966943Z" }
 
@@ -1779,6 +1812,12 @@ define([
         salesRecordLastAssigned = allSalesRecordSearchResultSet[0].getValue({
           name: "custrecord_sales_assigned"
         });
+
+        if (salesRecordLastAssigned == 1874329) {
+          salesRecordLastAssigned = 1952193;
+          salesRecordLastAssignedText = "ProspectPlus";
+        }
+
         accountManagerName = salesRecordLastAssignedText;
         var employeeRecord = record.load({
           type: record.Type.EMPLOYEE,
@@ -2316,6 +2355,9 @@ define([
         securityCode: securityCodeNumber,
         localMilePlusAuthLink: localMilePlusAuthLink,
         leadID: internalid,
+        localmilePMPOInternalID: localmilePMPOInternalID,
+        localmilePMPORate: localmilePMPORate,
+        localmileTrialInternalID: localmileTrialInternalID,
         message: "Lead Synced to LocalMile",
         result: "Lead synced to LocalMile successfully"
       };

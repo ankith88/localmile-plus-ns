@@ -308,6 +308,12 @@ define([
           fieldId: "custbody_synced_with_firebase",
           value: 1
         });
+        if (oldInvoiceStatus == "Paid In Full") {
+          recInvoice.setValue({
+            fieldId: "custbody_inv_paid_synced",
+            value: 1
+          });
+        }
         recInvoice.save();
 
         //Reset line items for new invoice
@@ -453,6 +459,12 @@ define([
         fieldId: "custbody_synced_with_firebase",
         value: 1
       });
+      if (oldInvoiceStatus == "Paid In Full") {
+        recInvoice.setValue({
+          fieldId: "custbody_inv_paid_synced",
+          value: 1
+        });
+      }
       recInvoice.save();
     }
   }

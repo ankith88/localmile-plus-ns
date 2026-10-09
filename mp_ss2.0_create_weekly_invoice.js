@@ -91,82 +91,75 @@ define([
     }
   }
 
-  function createInvoiceForCustomer(
-    customerId,
-    franchiseeId,
-    invoiceLineItems,
-    jobInternalIdArray,
-    options
-  ) {
-    options = options || {};
-
-    var recInvoice = record.create({
-      type: record.Type.INVOICE,
-      isDynamic: true
+  function invoiceCreation() {
+    //Get the current week's date range in Sydney time (Monday to Sunday).
+    var sydney_today = format.parse({
+      value: format.format({
+        value: new Date(),
+        type: format.Type.DATE,
+        timezone: format.Timezone.AUSTRALIA_SYDNEY
+      }),
+      type: format.Type.DATE
     });
 
-    recInvoice.setValue({
-      fieldId: "customform",
-      value: options.customform || 116
-    });
-    recInvoice.setValue({
-      fieldId: "entity",
-      value: customerId
-    });
+    var day_of_week = sydney_today.getDay(); // 0=Sunday, 1=Monday, ...
+    var days_since_monday = (day_of_week + 6) % 7;
 
-    var partnerRecord = record.load({
-      type: record.Type.PARTNER,
-      id: franchiseeId
-    });
+    var last_week_start_date = new Date(sydney_today);
+    last_week_start_date.setDate(
+      last_week_start_date.getDate() - days_since_monday
+    );
+    last_week_start_date.setHours(0, 0, 0, 0);
 
-    recInvoice.setValue({
-      fieldId: "department",
-      value: partnerRecord.getValue({ fieldId: "department" })
-    });
-    recInvoice.setValue({
-      fieldId: "location",
-      value: partnerRecord.getValue({ fieldId: "location" })
-    });
+    var last_week_end_date = new Date(last_week_start_date);
+    last_week_end_date.setDate(last_week_end_date.getDate() + 6);
+    last_week_end_date.setHours(23, 59, 59, 999);
 
-    recInvoice.setValue({
-      fieldId: "trandate",
-      value: getDateStoreNS()
-    });
-    recInvoice.setValue({
-      fieldId: "custbody_dont_update_trandate",
-      value: true
-    });
-    recInvoice.setValue({
-      fieldId: "custbody_inv_date_range_from",
-      value: getWeekStartNS()
-    });
-    recInvoice.setValue({
-      fieldId: "custbody_inv_date_range_to",
-      value: getWeekEndNS()
-    });
-
-    if (!isNullorEmpty(options.invType)) {
-      recInvoice.setValue({
-        fieldId: "custbody_inv_type",
-        value: options.invType
-      });
-    }
-
-    recInvoice.setValue({ fieldId: "partner", value: franchiseeId });
-    recInvoice.setValue({ fieldId: "terms", value: options.terms || 1 });
-
-    addInvoiceItems(recInvoice, invoiceLineItems);
-
-    // var invoiceId = recInvoice.save({
-    //   enableSourcing: true,
-    //   ignoreMandatoryFields: true
+    // service_start_date = format.format({
+    //   value: week_start_date,
+    //   type: format.Type.DATE
+    // });
+    // service_end_date = format.format({
+    //   value: week_end_date,
+    //   type: format.Type.DATE
     // });
 
-    updateInvoiceJobs(jobInternalIdArray, invoiceId);
-    return invoiceId;
-  }
+    // log.debug({
+    //   title: "service_start_date",
+    //   details: service_start_date
+    // });
+    // log.debug({
+    //   title: "service_end_date",
+    //   details: service_end_date
+    // });
 
-  function invoiceCreation() {
+    // //Above is the start and end week of current week in Sydney time. show me the start and end of week for the last week as well.
+    // var last_week_start_date = new Date(week_start_date);
+    // last_week_start_date.setDate(last_week_start_date.getDate() - 7);
+    // last_week_start_date.setHours(0, 0, 0, 0);
+
+    // var last_week_end_date = new Date(last_week_start_date);
+    // last_week_end_date.setDate(last_week_end_date.getDate() + 6);
+    // last_week_end_date.setHours(23, 59, 59, 999);
+
+    // var last_service_start_date = format.format({
+    //   value: last_week_start_date,
+    //   type: format.Type.DATE
+    // });
+    // var last_service_end_date = format.format({
+    //   value: last_week_end_date,
+    //   type: format.Type.DATE
+    // });
+
+    log.debug({
+      title: "last_week_start_date",
+      details: last_week_start_date
+    });
+    log.debug({
+      title: "last_week_end_date",
+      details: last_week_end_date
+    });
+
     //NetSuite Search: LocalMile.PLUS - Jobs Completed - To be Invoiced
     var searched_summary = search.load({
       id: "customsearch_lmp_jobs_complete_to_invoic",
@@ -245,36 +238,6 @@ define([
         details: jobInternalId
       });
 
-      //Get the current week's date range in Sydney time (Monday to Sunday).
-      var sydney_today = format.parse({
-        value: format.format({
-          value: new Date(),
-          type: format.Type.DATE,
-          timezone: format.Timezone.AUSTRALIA_SYDNEY
-        }),
-        type: format.Type.DATE
-      });
-
-      var day_of_week = sydney_today.getDay(); // 0=Sunday, 1=Monday, ...
-      var days_since_monday = (day_of_week + 6) % 7;
-
-      var week_start_date = new Date(sydney_today);
-      week_start_date.setDate(week_start_date.getDate() - days_since_monday);
-      week_start_date.setHours(0, 0, 0, 0);
-
-      var week_end_date = new Date(week_start_date);
-      week_end_date.setDate(week_end_date.getDate() + 6);
-      week_end_date.setHours(23, 59, 59, 999);
-
-      service_start_date = format.format({
-        value: week_start_date,
-        type: format.Type.DATE
-      });
-      service_end_date = format.format({
-        value: week_end_date,
-        type: format.Type.DATE
-      });
-
       // try {
       //If start of the loop, increment the qty of the item and add the item and rate into arrays
       if (isNullorEmpty(oldAppJobGroupInternalId)) {
@@ -345,140 +308,155 @@ define([
           title: "oldNSItemRate",
           details: oldNSItemRate
         });
-        //Check if there are any invoice line items to be added before creating a new invoice and if it is there, increment the quantity of the existing items instead of adding duplicate items.
-        var itemFound = false;
-        for (var i = 0; i < invoiceLineItems.length; i++) {
-          if (invoiceLineItems[i].item == oldNSItemInternalId) {
-            invoiceLineItems[i].quantity += 1;
-            itemFound = true;
-            break;
-          }
-        }
+        // //Check if there are any invoice line items to be added before creating a new invoice and if it is there, increment the quantity of the existing items instead of adding duplicate items.
+        // var itemFound = false;
+        // for (var i = 0; i < invoiceLineItems.length; i++) {
+        //   if (invoiceLineItems[i].item == oldNSItemInternalId) {
+        //     invoiceLineItems[i].quantity += 1;
+        //     itemFound = true;
+        //     break;
+        //   }
+        // }
 
-        if (!itemFound) {
-          invoiceLineItems.push({
-            item: oldNSItemInternalId,
-            rate: oldNSItemRate,
-            quantity: 1
-          });
-        }
+        // if (!itemFound) {
+        //   invoiceLineItems.push({
+        //     item: oldNSItemInternalId,
+        //     rate: oldNSItemRate,
+        //     quantity: 1
+        //   });
+        // }
 
-        //log invoiceLineItems
-        log.audit({
-          title: "invoiceLineItems",
-          details: JSON.stringify(invoiceLineItems)
-        });
+        // //log invoiceLineItems
+        // log.audit({
+        //   title: "invoiceLineItems",
+        //   details: JSON.stringify(invoiceLineItems)
+        // });
 
-        //Create Invoice
-        log.audit({
-          title: "START OF INVOICE CREATION",
-          details: ""
-        });
+        // //Create Invoice
+        // log.audit({
+        //   title: "START OF INVOICE CREATION",
+        //   details: ""
+        // });
 
-        recInvoice = record.create({
-          type: record.Type.INVOICE,
-          isDynamic: true
-        });
+        // log.debug({
+        //   title: "Creating Invoice for Customer",
+        //   details: "Customer Internal ID: " + oldCustomerInternalId
+        // });
+        // //log the last week's service date range
+        // log.debug({
+        //   title: "Last Week's Service Date Range",
+        //   details:
+        //     "From: " + last_week_start_date + " To: " + last_week_end_date
+        // });
 
-        recInvoice.setValue({ fieldId: "customform", value: 116 });
-        recInvoice.setValue({
-          fieldId: "entity",
-          value: oldCustomerInternalId
-        });
+        // recInvoice = record.create({
+        //   type: record.Type.INVOICE,
+        //   isDynamic: true
+        // });
 
-        recInvoice.setValue({
-          fieldId: "department",
-          value: record
-            .load({ type: record.Type.PARTNER, id: oldFranchisee })
-            .getValue({ fieldId: "department" })
-        });
-        recInvoice.setValue({
-          fieldId: "location",
-          value: record
-            .load({ type: record.Type.PARTNER, id: oldFranchisee })
-            .getValue({ fieldId: "location" })
-        });
+        // recInvoice.setValue({ fieldId: "customform", value: 116 });
+        // recInvoice.setValue({
+        //   fieldId: "entity",
+        //   value: oldCustomerInternalId
+        // });
 
-        //Set the invoice date to  the date the schedule script is going to run, which is Saturday. This is to be used in the invoice date field.
-        recInvoice.setValue({
-          fieldId: "trandate",
-          value: getDateStoreNS()
-        });
-        recInvoice.setValue({
-          fieldId: "custbody_dont_update_trandate",
-          value: true
-        });
-        recInvoice.setValue({
-          fieldId: "custbody_inv_date_range_from",
-          value: getWeekStartNS()
-        });
-        recInvoice.setValue({
-          fieldId: "custbody_inv_date_range_to",
-          value: getWeekEndNS()
-        });
+        // recInvoice.setValue({
+        //   fieldId: "department",
+        //   value: record
+        //     .load({ type: record.Type.PARTNER, id: oldFranchisee })
+        //     .getValue({ fieldId: "department" })
+        // });
+        // recInvoice.setValue({
+        //   fieldId: "location",
+        //   value: record
+        //     .load({ type: record.Type.PARTNER, id: oldFranchisee })
+        //     .getValue({ fieldId: "location" })
+        // });
 
-        recInvoice.setValue({ fieldId: "partner", value: oldFranchisee });
+        // //Set the invoice date to  the date the schedule script is going to run, which is Saturday. This is to be used in the invoice date field.
+        // recInvoice.setValue({
+        //   fieldId: "trandate",
+        //   value: last_week_end_date
+        // });
+        // recInvoice.setValue({
+        //   fieldId: "custbody_dont_update_trandate",
+        //   value: true
+        // });
+        // recInvoice.setValue({
+        //   fieldId: "custbody_inv_date_range_from",
+        //   value: last_week_start_date
+        // });
+        // recInvoice.setValue({
+        //   fieldId: "custbody_inv_date_range_to",
+        //   value: last_week_end_date
+        // });
 
-        recInvoice.setValue({ fieldId: "terms", value: 1 });
+        // recInvoice.setValue({ fieldId: "partner", value: oldFranchisee });
+        // recInvoice.setValue({
+        //   fieldId: "custbody_inv_type",
+        //   value: 16
+        // });
 
-        //go through the array and add the items to the invoice
-        for (var i = 0; i < invoiceLineItems.length; i++) {
-          recInvoice.selectNewLine({
-            sublistId: "item"
-          });
+        // recInvoice.setValue({ fieldId: "terms", value: 1 });
 
-          recInvoice.setCurrentSublistValue({
-            sublistId: "item",
-            fieldId: "item",
-            value: invoiceLineItems[i].item
-          });
+        // //go through the array and add the items to the invoice
+        // for (var i = 0; i < invoiceLineItems.length; i++) {
+        //   recInvoice.selectNewLine({
+        //     sublistId: "item"
+        //   });
 
-          recInvoice.setCurrentSublistValue({
-            sublistId: "item",
-            fieldId: "quantity",
-            value: invoiceLineItems[i].quantity
-          });
+        //   recInvoice.setCurrentSublistValue({
+        //     sublistId: "item",
+        //     fieldId: "item",
+        //     value: invoiceLineItems[i].item
+        //   });
 
-          recInvoice.setCurrentSublistValue({
-            sublistId: "item",
-            fieldId: "rate",
-            value: invoiceLineItems[i].rate
-          });
-          recInvoice.commitLine({ sublistId: "item" });
-        }
+        //   recInvoice.setCurrentSublistValue({
+        //     sublistId: "item",
+        //     fieldId: "quantity",
+        //     value: invoiceLineItems[i].quantity
+        //   });
 
-        var invoiceId = recInvoice.save({
-          enableSourcing: true,
-          ignoreMandatoryFields: true
-        });
+        //   recInvoice.setCurrentSublistValue({
+        //     sublistId: "item",
+        //     fieldId: "rate",
+        //     value: invoiceLineItems[i].rate
+        //   });
+        //   recInvoice.commitLine({ sublistId: "item" });
+        // }
 
-        //go through the job ids to update the field invoiceable to yes and store the invoice id in the job record
-        for (var i = 0; i < jobInternalIdArray.length; i++) {
-          var job_record = record.load({
-            type: "customrecord_job",
-            id: jobInternalIdArray[i]
-          });
-          job_record.setValue({
-            fieldId: "custrecord_job_invoice",
-            value: invoiceId
-          });
-          job_record.setValue({
-            fieldId: "custrecord_job_date_reviewed",
-            value: getDateStoreNS()
-          });
-          job_record.setValue({
-            fieldId: "custrecord_job_date_inv_finalised",
-            value: getDateStoreNS()
-          });
-          job_record.setValue({
-            fieldId: "custrecord_job_date_invoiced",
-            value: getDateStoreNS()
-          });
-          job_record.save({
-            enableSourcing: true,
-            ignoreMandatoryFields: true
-          });
-        }
+        // var invoiceId = recInvoice.save({
+        //   enableSourcing: true,
+        //   ignoreMandatoryFields: true
+        // });
+
+        // //go through the job ids to update the field invoiceable to yes and store the invoice id in the job record
+        // for (var i = 0; i < jobInternalIdArray.length; i++) {
+        //   var job_record = record.load({
+        //     type: "customrecord_job",
+        //     id: jobInternalIdArray[i]
+        //   });
+        //   job_record.setValue({
+        //     fieldId: "custrecord_job_invoice",
+        //     value: invoiceId
+        //   });
+        //   job_record.setValue({
+        //     fieldId: "custrecord_job_date_reviewed",
+        //     value: getDateStoreNS()
+        //   });
+        //   job_record.setValue({
+        //     fieldId: "custrecord_job_date_inv_finalised",
+        //     value: getDateStoreNS()
+        //   });
+        //   job_record.setValue({
+        //     fieldId: "custrecord_job_date_invoiced",
+        //     value: getDateStoreNS()
+        //   });
+        //   job_record.save({
+        //     enableSourcing: true,
+        //     ignoreMandatoryFields: true
+        //   });
+        // }
 
         var reschedule = task.create({
           taskType: task.TaskType.SCHEDULED_SCRIPT,
@@ -570,7 +548,7 @@ define([
       //Set the invoice date to  the date the schedule script is going to run, which is Saturday. This is to be used in the invoice date field.
       recInvoice.setValue({
         fieldId: "trandate",
-        value: getDateStoreNS()
+        value: last_week_end_date
       });
       recInvoice.setValue({
         fieldId: "custbody_dont_update_trandate",
@@ -578,11 +556,11 @@ define([
       });
       recInvoice.setValue({
         fieldId: "custbody_inv_date_range_from",
-        value: getWeekStartNS()
+        value: last_week_start_date
       });
       recInvoice.setValue({
         fieldId: "custbody_inv_date_range_to",
-        value: getWeekEndNS()
+        value: last_week_end_date
       });
       recInvoice.setValue({
         fieldId: "custbody_inv_type",

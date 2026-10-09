@@ -264,7 +264,11 @@ define([
         var dateDDMMYYYY = convertDateToDDMMYYYY(jobDate);
         var netsuiteLPOServiceDateDateFormat = dateSelected2Date(jobDate);
         var instructions = responseObj.data.instructions;
-        var is_free_job = responseObj.data.is_free_job.booleanValue;
+        if (!isNullorEmpty(responseObj.data.is_free_job)) {
+          var is_free_job = responseObj.data.is_free_job.booleanValue;
+        } else {
+          var is_free_job = false;
+        }
         if (!isNullorEmpty(responseObj.data.preferred_time)) {
           var currentTime = responseObj.data.preferred_time;
         } else {
@@ -465,6 +469,16 @@ define([
           serviceInternalId = serviceH2hInternalId;
         } else {
           serviceInternalId = responseObj.data.serviceInternalId;
+          if (serviceType == "site-to-australia post") {
+            appJobGroupServiceText = "PMPO";
+            localMilePlusService = "Site-to-Australia Post";
+          } else if (serviceType == "australia post-to-site") {
+            appJobGroupServiceText = "AMPO";
+            localMilePlusService = "Australia Post-to-Site";
+          } else if (serviceType == "site-to-site") {
+            appJobGroupServiceText = "H2H";
+            localMilePlusService = "Site-to-Site";
+          }
         }
 
         //Check if fields exist
